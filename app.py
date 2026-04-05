@@ -612,6 +612,15 @@ def create_app() -> Flask:
         flash(f"{target.name} removed from the trip.", "success")
         return redirect(url_for("admin_panel", code=code))
 
+    @app.route("/admin/<code>/reset-password/<int:member_id>", methods=["POST"])
+    @_require_admin
+    def admin_reset_password(code, member_id):
+        target = TripMember.query.filter_by(id=member_id).first_or_404()
+        target.password_hash = None
+        db.session.commit()
+        flash(f"Password reset for {target.name}. They can set a new one on next login.", "success")
+        return redirect(url_for("admin_panel", code=code))
+
     @app.route("/admin/<code>/delete", methods=["POST"])
     @_require_admin
     def admin_delete_trip(code):

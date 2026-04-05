@@ -93,6 +93,13 @@
           <div class="text-xs text-gray-400">Joined {{ member.joined_at | dmy }} · {{ member.available_dates_list|length }} date{{ 's' if member.available_dates_list|length != 1 else '' }}</div>
         </div>
         {% if not member.is_admin %}
+        <form method="POST" action="/admin/{{ trip.join_code }}/reset-password/{{ member.id }}"
+          onsubmit="return confirm('Reset password for {{ member.name }}? They will set a new one on next login.')">
+          <button type="submit" title="Reset password"
+            class="flex items-center justify-center w-7 h-7 rounded-lg text-amber-500 hover:bg-amber-50 transition-colors border border-transparent hover:border-amber-200">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+          </button>
+        </form>
         <form method="POST" action="/admin/{{ trip.join_code }}/kick/{{ member.id }}"
           onsubmit="return confirm('Remove {{ member.name }} from the trip?')">
           <button type="submit" class="del-btn hover:bg-red-100 transition-colors" title="Remove from trip">

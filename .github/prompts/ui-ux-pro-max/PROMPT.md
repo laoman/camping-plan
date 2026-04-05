@@ -19,7 +19,7 @@ brew install python3
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt update && sudo apt install python3
+sufo apt update && sufo apt install python3
 ```
 
 **Windows:**
