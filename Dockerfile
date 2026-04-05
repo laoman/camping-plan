@@ -21,6 +21,7 @@ RUN mkdir -p /data
 # Railway injects $PORT at runtime (default 8080).
 # Gunicorn reads it via the CMD below.
 ENV PORT=8080
+ENV DB_PATH=/data/jimnycamp.db
 
 EXPOSE 8080
 
