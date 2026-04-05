@@ -18,12 +18,69 @@ from flask import (
     url_for, session, jsonify, abort, flash,
 )
 
+from sqlalchemy import text as _sa_text
 from models import (
     db, COLORS,
     Trip, TripMember, TodoItem, EquipmentItem, FoodItem,
     PersonalItem, Idea, Poll, PollOption, PollVote, RouteStop,
     TripDateProposal, ProposalVote, IdeaVote, TodoVote,
 )
+
+# ──────────────────────────────────────────────
+# Default seed data
+# ──────────────────────────────────────────────
+
+_EQUIP_SEED = [
+    ("Διαμονή & Ύπνος", [
+        "Σκήνη (Tent)", "Στρώμα αέρος / Στρώμα", "Υπνοσάκκο",
+        "Μαξιλάρι ορθοπεδικό", "Ground cloth/tarp", "Mat for tent entrance", "Hammock",
+    ]),
+    ("Έπιπλα & Φωτισμός", [
+        "Καρέκλες πτυσσόμενες", "Τραπέζι πτυσσόμενο", "Λάμπα μπαταρίας",
+        "Φωτισμός", "Σπίρτα / Αναπτήρα",
+    ]),
+    ("Κουζίνα & Εργαλεία", [
+        "Γκάζι για ψήσιμο / BBQ & Stove", "Τηγάνι + παρελκόμενα", "Παγωνιέρα",
+        "Σανίδι κοπής", "Μαχαίρι του σεφ", "Πιάτα / Ποτήρια / Μαχαιροπίρουνα",
+        "Παγούρι νερό / Water Tank / Θέρμος", "Υγρό πιάτων και σφουγγαράκι",
+        "Υγρό χεριών / Σαπούνι", "Εργαλειοθήκη", "Πυροσβεστήρα", "Dust pan/brush",
+    ]),
+    ("Τεχνολογία", [
+        "Drone", "GoPro / Camera gear", "Bluetooth μεγάφωνο / Music",
+        "Power banks", "Καλώδιο extension",
+    ]),
+]
+
+_FOOD_SEED = [
+    ("Προμήθειες", [
+        "Ελαιόλαδο / Αλάτι / Πιπέρι / Ρίγανη / Πάπρικα",
+        "Καφέ / Ζάχαρη / Τσάι / Εσπρεσιέρα",
+        "Ρύζι", "Κονσέρβα / Corn beef", "Ψωμί κουλούρι (φέττες)",
+        "Αυγά (18)", "Χαλλούμια", "Λουκάνικα", "Λούντζα",
+    ]),
+    ("Φρέσκα & Σνακ", [
+        "Ντοματίνια / Αγγουράκια / Καρότο", "Chips",
+    ]),
+    ("Ποτά", [
+        "Νερό (πόσιμο)", "Μπύρες (Corona / Fix)",
+        "Αναψυκτικά (Coke, 7up, κλπ)", "Πάγο",
+    ]),
+    ("Άλλα", [
+        "Χρυσό Ρινόκερο", "Πράσινο Ρινόκερο", "Mosquito repellent",
+        "Αντηλιακό / Αποσμητικό", "Hiking Shoes",
+    ]),
+]
+
+
+def _seed_trip(trip_id: int) -> None:
+    """Populate a new trip with default equipment and food items."""
+    for cat, items in _EQUIP_SEED:
+        for text in items:
+            db.session.add(EquipmentItem(trip_id=trip_id, text=text, category=cat))
+    for cat, items in _FOOD_SEED:
+        for text in items:
+            db.session.add(FoodItem(trip_id=trip_id, text=text, category=cat))
+    db.session.commit()
 
 
 # ──────────────────────────────────────────────
@@ -239,6 +296,14 @@ def create_app() -> Flask:
     db.init_app(app)
     with app.app_context():
         db.create_all()
+        # Safe migration: add category column to existing DBs
+        with db.engine.connect() as conn:
+            for _tbl in ("equipment_item", "food_item"):
+                try:
+                    conn.execute(_sa_text(f"ALTER TABLE {_tbl} ADD COLUMN category VARCHAR(100) DEFAULT ''"))
+                    conn.commit()
+                except Exception:
+                    pass  # Column already exists
 
     @app.template_filter("dmy")
     def dmy_filter(value):
@@ -317,6 +382,7 @@ def create_app() -> Flask:
             member = TripMember(trip_id=trip.id, name=name, color=COLORS[0], is_admin=True)
             db.session.add(member)
             db.session.commit()
+            _seed_trip(trip.id)
 
             # Grant admin panel access for this trip automatically
             session[_admin_auth_key(code)] = True
@@ -617,7 +683,8 @@ def create_app() -> Flask:
         if not text:
             abort(400)
         assignee = str(data.get("assignee", "")).strip()[:60]
-        item = EquipmentItem(trip_id=trip.id, text=text, assignee=assignee, added_by=session.get("user", ""))
+        category = str(data.get("category", "")).strip()[:100]
+        item = EquipmentItem(trip_id=trip.id, text=text, assignee=assignee, category=category, added_by=session.get("user", ""))
         db.session.add(item)
         db.session.commit()
         return jsonify(item.to_dict()), 201
@@ -660,7 +727,8 @@ def create_app() -> Flask:
         if not text:
             abort(400)
         assignee = str(data.get("assignee", "")).strip()[:60]
-        item = FoodItem(trip_id=trip.id, text=text, assignee=assignee, added_by=session.get("user", ""))
+        category = str(data.get("category", "")).strip()[:100]
+        item = FoodItem(trip_id=trip.id, text=text, assignee=assignee, category=category, added_by=session.get("user", ""))
         db.session.add(item)
         db.session.commit()
         return jsonify(item.to_dict()), 201
