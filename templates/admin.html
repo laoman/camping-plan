@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block title %}Admin — {{ trip.name }} — JimnyCamp{% endblock %}
+
+{% block body %}
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="/trip/{{ trip.join_code }}" class="text-forest-600 hover:text-forest-800 transition-colors">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+      </a>
+      <span class="font-black text-forest-900 text-lg tracking-tight hidden sm:inline">JimnyCamp</span>
+      <span class="text-gray-300 hidden sm:inline">·</span>
+      <span class="font-bold text-amber-600 truncate text-sm">Admin Panel</span>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <div class="avatar-dot-sm" style="background:{{ me.color }};" title="{{ me.name }}">{{ me.name[0]|upper }}</div>
+      <form method="POST" action="/admin/{{ trip.join_code }}/auth-logout">
+        <button type="submit" class="text-xs text-amber-600 hover:text-amber-800 font-semibold transition-colors" title="Lock admin panel">🔒 Lock</button>
+      </form>
+      <a href="/logout" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Leave</a>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for cat, msg in messages %}
+    <div class="px-4 py-3 rounded-xl text-sm font-semibold
+      {% if cat == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-green-100 text-green-800 border border-green-200{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  {% endif %}
+  {% endwith %}
+
+  <!-- ═══════════════════ TRIP SETTINGS ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+      <h2 class="card-title">Trip Settings</h2>
+    </div>
+    <form method="POST" action="/admin/{{ trip.join_code }}/settings" novalidate>
+      <div class="mb-4">
+        <label class="field-label" for="trip-name">Trip Name</label>
+        <input type="text" id="trip-name" name="trip_name" class="field-input"
+          value="{{ trip.name }}" required maxlength="120">
+      </div>
+      <div class="mb-6">
+        <label class="field-label" for="trip-desc">Description <span class="font-normal normal-case tracking-normal text-gray-400">(optional)</span></label>
+        <textarea id="trip-desc" name="trip_desc" class="field-input resize-none" rows="3"
+          maxlength="500">{{ trip.description or '' }}</textarea>
+      </div>
+      <button type="submit" class="btn-cta" style="max-width:200px;">Save Changes</button>
+    </form>
+  </div>
+
+  <!-- ═══════════════════ JOIN CODE ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+      <h2 class="card-title">Join Code</h2>
+    </div>
+    <div class="flex items-center gap-4">
+      <code class="font-mono font-black text-3xl text-amber-700 tracking-widest bg-amber-50 px-6 py-4 rounded-2xl border border-amber-200 select-all">{{ trip.join_code }}</code>
+      <div>
+        <button onclick="copyCode()" class="btn-outline-sm block mb-2">Copy Code</button>
+        <p class="text-xs text-gray-400">Share this code with campers so they can join.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ CREW MANAGEMENT ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+      <h2 class="card-title">Crew ({{ trip.members|length }})</h2>
+    </div>
+    <div class="space-y-2">
+      {% for member in trip.members %}
+      <div class="item-row">
+        <div class="avatar-dot flex-shrink-0" style="background:{{ member.color }};">{{ member.name[0]|upper }}</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-gray-800 text-sm">
+            {{ member.name }}
+            {% if member.name == me.name %}<span class="text-xs text-forest-600 font-normal ml-1">(you)</span>{% endif %}
+            {% if member.is_admin %}<span class="text-xs text-amber-600 font-semibold ml-1">Admin</span>{% endif %}
+          </div>
+          <div class="text-xs text-gray-400">Joined {{ member.joined_at | dmy }} · {{ member.available_dates_list|length }} date{{ 's' if member.available_dates_list|length != 1 else '' }}</div>
+        </div>
+        {% if not member.is_admin %}
+        <form method="POST" action="/admin/{{ trip.join_code }}/kick/{{ member.id }}"
+          onsubmit="return confirm('Remove {{ member.name }} from the trip?')">
+          <button type="submit" class="del-btn hover:bg-red-100 transition-colors" title="Remove from trip">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ═══════════════════ CREATE POLL ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+      <h2 class="card-title">Create a Poll</h2>
+    </div>
+    <form id="poll-create-form" onsubmit="createPoll(event)">
+      <div class="mb-4">
+        <label class="field-label" for="poll-question">Question</label>
+        <input type="text" id="poll-question" class="field-input" placeholder="e.g. Which weekend do you prefer?" required maxlength="300">
+      </div>
+      <div class="mb-4">
+        <label class="field-label" for="poll-kind">Type</label>
+        <select id="poll-kind" class="field-input" style="max-width:220px;">
+          <option value="general">General</option>
+          <option value="date">Date poll</option>
+          <option value="location">Location poll</option>
+        </select>
+      </div>
+      <div class="mb-6">
+        <label class="field-label" for="poll-options-text">Options <span class="font-normal normal-case tracking-normal text-gray-400">(one per line, min 2)</span></label>
+        <textarea id="poll-options-text" class="field-input resize-none" rows="5"
+          placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+      </div>
+      <button type="submit" class="btn-cta" style="max-width:200px;">Create Poll</button>
+      <div id="poll-success" class="mt-3 text-sm text-forest-600 font-semibold hidden">Poll created! Go to the trip page to see it.</div>
+      <div id="poll-error" class="mt-3 text-sm text-red-600 font-semibold hidden"></div>
+    </form>
+  </div>
+
+  <!-- ═══════════════════ MANAGE POLLS ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+      <h2 class="card-title">Manage Polls</h2>
+    </div>
+    {% if trip.polls %}
+    <div class="space-y-3" id="admin-polls-list">
+      {% for poll in trip.polls %}
+      <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0" id="apoll-{{ poll.id }}">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-gray-800 truncate">{{ poll.question }}</div>
+          <div class="text-xs text-gray-400">
+            <span class="{% if poll.kind=='date' %}text-blue-500{% elif poll.kind=='location' %}text-purple-500{% else %}text-forest-600{% endif %} font-semibold">{{ poll.kind }}</span>
+            · {{ poll.options|length }} option{{ 's' if poll.options|length!=1 else '' }}
+            · {{ poll.options|sum(attribute='vote_count') }} vote{{ 's' if poll.options|sum(attribute='vote_count')!=1 else '' }}
+            {% if poll.closed %}<span class="ml-1 text-gray-400">(closed)</span>{% endif %}
+          </div>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          {% if not poll.closed %}
+          <button onclick="adminClosePoll({{ poll.id }})" class="text-xs text-amber-600 hover:text-amber-800 font-semibold cursor-pointer">Close</button>
+          {% endif %}
+          <button onclick="adminDeletePoll({{ poll.id }})" class="del-btn">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-4">No polls created yet.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+  <!-- ═══════════════════ DATE PROPOSALS ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+      <h2 class="card-title">Date Proposals</h2>
+    </div>
+    <p class="text-sm text-gray-500 mb-4">Add the date windows you're considering. Crew members will be able to mark which ones they can make.</p>
+
+    <!-- Existing proposals -->
+    <div id="proposals-list" class="space-y-2 mb-5">
+      {% if trip.proposals %}
+        {% for p in trip.proposals %}
+        <div class="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-100 rounded-xl" id="prop-{{ p.id }}">
+          <div class="flex-1 min-w-0">
+            <span class="text-sm font-bold text-gray-800">{{ p.start | replace('-', '/') }} → {{ p.end | replace('-', '/') }}</span>
+            <span class="text-xs text-gray-400 ml-2">{{ p.days }} day{{ 's' if p.days != 1 }}</span>
+            {% if p.label %}<span class="ml-2 text-xs font-semibold text-forest-600">{{ p.label }}</span>{% endif %}
+            <span class="ml-2 text-xs text-gray-400">{{ p.votes|length }} vote{{ 's' if p.votes|length != 1 }}</span>
+          </div>
+          <button onclick="deleteProposal({{ p.id }})" class="del-btn flex-shrink-0" title="Remove">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+        {% endfor %}
+      {% else %}
+      <p class="text-sm text-gray-400 text-center py-3 border border-dashed border-gray-200 rounded-xl" id="proposals-empty">No date proposals yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Add proposal form -->
+    <div class="p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">+ Add a date window</p>
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[130px]">
+          <label class="field-label" for="prop-from">From</label>
+          <input type="date" id="prop-from" class="field-input">
+        </div>
+        <div class="flex-1 min-w-[130px]">
+          <label class="field-label" for="prop-to">To</label>
+          <input type="date" id="prop-to" class="field-input">
+        </div>
+        <div class="flex-1 min-w-[150px]">
+          <label class="field-label" for="prop-label">Label <span class="font-normal normal-case tracking-normal text-gray-400">(optional)</span></label>
+          <input type="text" id="prop-label" class="field-input" placeholder="e.g. Option A" maxlength="100">
+        </div>
+        <button type="button" onclick="addProposal()"
+          class="py-2.5 px-5 rounded-xl text-sm font-semibold text-white transition-colors flex-shrink-0"
+          style="background:#059669;">Add</button>
+      </div>
+      <p id="prop-error" class="text-xs text-red-500 mt-2 hidden"></p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ DANGER ZONE ═══════════════════ -->
+  <div class="card border border-red-100">
+    <div class="card-header">
+      <svg class="card-icon text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+      <h2 class="card-title text-red-600">Danger Zone</h2>
+    </div>
+    <p class="text-sm text-gray-500 mb-4">Permanently delete this trip and all of its data — members, todos, polls, ideas, route stops, and equipment. <strong>This cannot be undone.</strong></p>
+    <button onclick="confirmDeleteTrip()" class="py-2 px-5 rounded-xl text-sm font-semibold bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 hover:border-red-600 transition-colors">
+      Delete Trip
+    </button>
+    <form id="delete-trip-form" method="POST" action="/admin/{{ trip.join_code }}/delete" class="hidden"></form>
+  </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CODE = {{ trip.join_code | tojson }};
+
+function confirmDeleteTrip() {
+  if (confirm('Delete this trip permanently? All members, todos, polls, ideas, and route stops will be removed. This cannot be undone.')) {
+    document.getElementById('delete-trip-form').submit();
+  }
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(CODE);
+  alert('Code copied: ' + CODE);
+}
+
+function fmtDate(iso) {
+  return iso.replace(/-/g, '/');
+}
+
+async function addProposal() {
+  const start = document.getElementById('prop-from').value;
+  const end   = document.getElementById('prop-to').value;
+  const label = document.getElementById('prop-label').value.trim();
+  const errEl = document.getElementById('prop-error');
+  errEl.classList.add('hidden');
+  if (!start || !end) { errEl.textContent = 'Please select both dates.'; errEl.classList.remove('hidden'); return; }
+  if (end < start)    { errEl.textContent = 'End date must be on or after start.'; errEl.classList.remove('hidden'); return; }
+  const res = await fetch(`/admin/${CODE}/proposals`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start, end, label }),
+  });
+  const data = await res.json();
+  if (!data.ok) { errEl.textContent = data.error || 'Error saving.'; errEl.classList.remove('hidden'); return; }
+  document.getElementById('prop-from').value  = '';
+  document.getElementById('prop-to').value    = '';
+  document.getElementById('prop-label').value = '';
+  // Remove empty placeholder if present
+  const empty = document.getElementById('proposals-empty');
+  if (empty) empty.remove();
+  // Append row to list
+  const p = data.proposal;
+  const days = p.days;
+  const div = document.createElement('div');
+  div.className = 'flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-100 rounded-xl';
+  div.id = `prop-${p.id}`;
+  div.innerHTML = `
+    <div class="flex-1 min-w-0">
+      <span class="text-sm font-bold text-gray-800">${fmtDate(p.start)} → ${fmtDate(p.end)}</span>
+      <span class="text-xs text-gray-400 ml-2">${days} day${days !== 1 ? 's' : ''}</span>
+      ${p.label ? `<span class="ml-2 text-xs font-semibold text-forest-600">${p.label}</span>` : ''}
+      <span class="ml-2 text-xs text-gray-400">0 votes</span>
+    </div>
+    <button onclick="deleteProposal(${p.id})" class="del-btn flex-shrink-0" title="Remove">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    </button>`;
+  document.getElementById('proposals-list').appendChild(div);
+}
+
+async function deleteProposal(id) {
+  if (!confirm('Remove this date proposal? Existing votes will be lost.')) return;
+  const res = await fetch(`/admin/${CODE}/proposals/${id}`, { method: 'DELETE' });
+  if ((await res.json()).ok) {
+    document.getElementById(`prop-${id}`)?.remove();
+    if (!document.getElementById('proposals-list').querySelector('[id^="prop-"]')) {
+      const list = document.getElementById('proposals-list');
+      list.innerHTML = '<p class="text-sm text-gray-400 text-center py-3 border border-dashed border-gray-200 rounded-xl" id="proposals-empty">No date proposals yet.</p>';
+    }
+  }
+}
+
+async function createPoll(e) {
+  e.preventDefault();
+  const question = document.getElementById('poll-question').value.trim();
+  const kind     = document.getElementById('poll-kind').value;
+  const rawOpts  = document.getElementById('poll-options-text').value;
+  const options  = rawOpts.split('\n').map(s=>s.trim()).filter(Boolean);
+  const errEl = document.getElementById('poll-error');
+  const okEl  = document.getElementById('poll-success');
+  errEl.classList.add('hidden'); okEl.classList.add('hidden');
+  if (!question) { errEl.textContent = 'Please enter a question.'; errEl.classList.remove('hidden'); return; }
+  if (options.length < 2) { errEl.textContent = 'Please enter at least 2 options.'; errEl.classList.remove('hidden'); return; }
+  const res = await fetch(`/api/${CODE}/polls`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({question, kind, options})
+  });
+  if (!res.ok) { errEl.textContent = 'Failed to create poll.'; errEl.classList.remove('hidden'); return; }
+  const poll = await res.json();
+  okEl.classList.remove('hidden');
+  document.getElementById('poll-question').value = '';
+  document.getElementById('poll-options-text').value = '';
+  // Add to manage polls list
+  const list = document.getElementById('admin-polls-list');
+  if (list) {
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-3 py-2 border-b border-gray-50 last:border-0';
+    div.id = `apoll-${poll.id}`;
+    div.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-gray-800 truncate">${escHtml(poll.question)}</div>
+        <div class="text-xs text-gray-400"><span class="${poll.kind==='date'?'text-blue-500':poll.kind==='location'?'text-purple-500':'text-forest-600'} font-semibold">${poll.kind}</span> · ${poll.options.length} option${poll.options.length!==1?'s':''} · 0 votes</div>
+      </div>
+      <div class="flex gap-2 flex-shrink-0">
+        <button onclick="adminClosePoll(${poll.id})" class="text-xs text-amber-600 hover:text-amber-800 font-semibold cursor-pointer">Close</button>
+        <button onclick="adminDeletePoll(${poll.id})" class="del-btn">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        </button>
+      </div>`;
+    list.appendChild(div);
+  }
+}
+
+async function adminClosePoll(id) {
+  if (!confirm('Close this poll to prevent further voting?')) return;
+  const res = await fetch(`/api/${CODE}/polls/${id}/close`, { method:'POST' });
+  if (!res.ok) { alert('Failed.'); return; }
+  const row = document.getElementById(`apoll-${id}`);
+  if (row) {
+    const closeBtn = row.querySelector('button');
+    if (closeBtn && closeBtn.textContent.trim()==='Close') closeBtn.remove();
+    row.querySelector('.text-xs').innerHTML += '<span class="ml-1 text-gray-400">(closed)</span>';
+  }
+}
+
+async function adminDeletePoll(id) {
+  if (!confirm('Delete this poll permanently?')) return;
+  const res = await fetch(`/api/${CODE}/polls/${id}`, { method:'DELETE' });
+  if (!res.ok) { alert('Failed.'); return; }
+  document.getElementById(`apoll-${id}`)?.remove();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

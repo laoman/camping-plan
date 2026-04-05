@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — JimnyCamp{% endblock %}
+
+{% block body %}
+
+{% if locked %}
+<!-- ═══════════════════ LOCKED — PASSWORD GATE ═══════════════════ -->
+<div class="bg-forest flex items-center justify-center p-4" style="min-height:100vh;">
+  <div id="stars" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+
+  <div class="relative z-10 w-full" style="max-width:420px;">
+
+    <a href="/" class="flex items-center gap-2 text-green-200 hover:text-white text-sm font-medium mb-6 transition-colors">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+      Back to home
+    </a>
+
+    <div class="glass-card p-8">
+      <div class="text-center mb-8">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#FBBF24,#D97706);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="28" height="28" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 116 0z" clip-rule="evenodd"/></svg>
+        </div>
+        <h1 class="font-black text-forest-900 text-2xl">Admin Dashboard</h1>
+        <p class="text-xs text-gray-400 mt-1">Enter the admin password to continue</p>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold
+          {% if cat == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-green-100 text-green-800 border border-green-200{% endif %}">
+          {{ msg }}
+        </div>
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="/admin" novalidate>
+        <div class="mb-6">
+          <label class="field-label" for="password">Admin Password</label>
+          <input type="password" id="password" name="password" class="field-input"
+            placeholder="••••••••" required autofocus autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-cta"
+          style="background:linear-gradient(135deg,#FBBF24,#D97706);color:#064E3B;">
+          Unlock Dashboard →
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<!-- ═══════════════════ UNLOCKED — FULL DASHBOARD ═══════════════════ -->
+
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="/" class="text-forest-600 hover:text-forest-800 transition-colors">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+      </a>
+      <span class="font-black text-forest-900 text-lg tracking-tight hidden sm:inline">JimnyCamp</span>
+      <span class="text-gray-300 hidden sm:inline">·</span>
+      <span class="font-bold text-amber-600 text-sm">Admin Dashboard</span>
+    </div>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <a href="/admin/create-trip"
+         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-xs font-semibold text-amber-700 transition-colors">
+        <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        New Trip
+      </a>
+      <form method="POST" action="/admin/logout">
+        <button type="submit" class="text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors">🔒 Lock</button>
+      </form>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for cat, msg in messages %}
+    <div class="mb-6 px-4 py-3 rounded-xl text-sm font-semibold
+      {% if cat == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-green-100 text-green-800 border border-green-200{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  {% endif %}
+  {% endwith %}
+
+  <!-- Header -->
+  <div class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="font-black text-gray-900 text-2xl">All Trips</h1>
+      <p class="text-sm text-gray-400 mt-0.5">{{ trips|length }} trip{{ 's' if trips|length != 1 else '' }} total</p>
+    </div>
+  </div>
+
+  {% if trips %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    {% for trip in trips %}
+    <div class="card hover:shadow-md transition-shadow">
+
+      <!-- Trip header -->
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="min-w-0">
+          <h2 class="font-black text-gray-900 text-base truncate">{{ trip.name }}</h2>
+          {% if trip.description %}
+          <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ trip.description }}</p>
+          {% endif %}
+        </div>
+        <code class="font-mono font-bold text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg flex-shrink-0 select-all tracking-widest">{{ trip.join_code }}</code>
+      </div>
+
+      <!-- Stats row -->
+      <div class="flex items-center gap-4 mb-5">
+        <!-- Member avatars -->
+        <div class="flex items-center">
+          {% for m in trip.members[:5] %}
+          <div class="avatar-dot-sm" style="background:{{ m.color }};z-index:{{ 10-loop.index0 }};" title="{{ m.name }}">{{ m.name[0]|upper }}</div>
+          {% endfor %}
+          {% if trip.members|length > 5 %}
+          <div class="avatar-dot-sm bg-gray-200 text-gray-500 text-xs">+{{ trip.members|length - 5 }}</div>
+          {% endif %}
+        </div>
+        <div class="text-xs text-gray-500">
+          <span class="font-semibold text-gray-700">{{ trip.members|length }}</span> member{{ 's' if trip.members|length != 1 else '' }}
+        </div>
+        <div class="text-xs text-gray-400">
+          Created {{ trip.created_at | dmy }}
+        </div>
+      </div>
+
+      <!-- Extra stats -->
+      <div class="flex items-center gap-3 mb-5 flex-wrap">
+        {% if trip.todos %}
+        <span class="badge-green text-xs">{{ trip.todos|length }} to-do{{ 's' if trip.todos|length != 1 else '' }}</span>
+        {% endif %}
+        {% if trip.polls %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-100">{{ trip.polls|length }} poll{{ 's' if trip.polls|length != 1 else '' }}</span>
+        {% endif %}
+        {% if trip.ideas %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">{{ trip.ideas|length }} idea{{ 's' if trip.ideas|length != 1 else '' }}</span>
+        {% endif %}
+        {% if trip.route_stops %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">{{ trip.route_stops|length }} stop{{ 's' if trip.route_stops|length != 1 else '' }}</span>
+        {% endif %}
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2 pt-4 border-t border-gray-50">
+        <a href="/admin/{{ trip.join_code }}"
+           class="flex-1 text-center py-2 px-3 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white transition-colors">
+          Manage
+        </a>
+        <a href="/trip/{{ trip.join_code }}"
+           class="flex-1 text-center py-2 px-3 rounded-xl text-xs font-semibold border border-gray-200 hover:border-forest-300 hover:bg-forest-50 text-gray-600 hover:text-forest-700 transition-colors">
+          View Trip
+        </a>
+        <button onclick="copyTripCode('{{ trip.join_code }}')"
+           class="py-2 px-3 rounded-xl text-xs font-semibold border border-gray-200 hover:border-amber-300 text-gray-500 hover:text-amber-600 transition-colors" title="Copy join code">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+        </button>
+        <button onclick="deleteTripCard('{{ trip.join_code }}', '{{ trip.name | e }}')"
+           class="py-2 px-3 rounded-xl text-xs font-semibold border border-red-100 hover:bg-red-600 text-red-400 hover:text-white hover:border-red-600 transition-colors" title="Delete trip">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        </button>
+        <form id="del-form-{{ trip.join_code }}" method="POST" action="/admin/{{ trip.join_code }}/delete" class="hidden"></form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="text-center py-20">
+    <div style="width:64px;height:64px;background:linear-gradient(135deg,#DCFCE7,#BBF7D0);border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+      <svg width="32" height="32" fill="#059669" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+    </div>
+    <h2 class="font-black text-gray-700 text-xl mb-2">No trips yet</h2>
+    <p class="text-sm text-gray-400 mb-6">Create your first trip to get started.</p>
+    <a href="/admin/create-trip" class="btn-cta inline-block" style="max-width:200px;">Create a Trip →</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+const starsEl = document.getElementById('stars');
+if (starsEl) {
+  for(let i=0;i<55;i++){const d=document.createElement('div');d.className='star';const z=2+Math.random()*3.5;d.style.cssText=`width:${z}px;height:${z}px;left:${Math.random()*100}%;top:${Math.random()*85}%;animation-delay:${Math.random()*4}s;animation-duration:${2+Math.random()*3}s;`;starsEl.appendChild(d);}
+}
+function copyTripCode(code) {
+  navigator.clipboard.writeText(code);
+  alert('Code copied: ' + code);
+}
+function deleteTripCard(code, name) {
+  if (confirm('Delete trip \u201c' + name + '\u201d? All data will be permanently removed. This cannot be undone.')) {
+    document.getElementById('del-form-' + code).submit();
+  }
+}
+</script>
+{% endblock %}

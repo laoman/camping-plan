@@ -1,0 +1,1419 @@
+{% extends "base.html" %}
+{% block title %}{{ trip.name }} — JimnyCamp{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block body %}
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="/" class="logo-badge-sm flex-shrink-0">
+        <svg width="22" height="22" viewBox="0 0 38 38" fill="none"><path d="M19 5L34 30H4L19 5Z" fill="white" opacity="0.95"/><path d="M15 30V22H23V30" fill="rgba(6,78,59,0.5)"/><rect x="16" y="23" width="6" height="7" rx="1" fill="rgba(251,191,36,0.85)"/></svg>
+      </a>
+      <span class="font-black text-forest-900 text-lg tracking-tight hidden sm:inline">JimnyCamp</span>
+      <span class="text-gray-300 hidden sm:inline">·</span>
+      <span class="font-bold text-gray-700 truncate text-sm sm:text-base">{{ trip.name }}</span>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <!-- Code badge -->
+      <button onclick="copyCode()" title="Copy join code"
+        class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-mono font-bold text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer">
+        <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+        <span id="code-display">{{ trip.join_code }}</span>
+      </button>
+      <a href="/trip/{{ trip.join_code }}/my-plan" class="btn-outline-sm">My Plan</a>
+      {% if me.is_admin %}
+      <a href="/admin/{{ trip.join_code }}" class="btn-outline-sm" style="border-color:#FBBF24;color:#D97706;">Admin</a>
+      {% endif %}
+      <div class="avatar-dot-sm" style="background:{{ me.color }};" title="{{ me.name }}">{{ me.name[0]|upper }}</div>
+      <a href="/logout" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Leave</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Section tab nav -->
+<div class="bg-white border-b border-gray-100 sticky top-14 z-40">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 flex gap-1 overflow-x-auto py-1" id="tab-nav">
+    {% set tabs = [("overview","Overview"),("todos","To-Dos"),("equipment","Equipment"),("food","Food"),("ideas","Ideas"),("polls","Polls"),("route","Route")] %}
+    {% for tid, tlabel in tabs %}
+    <button onclick="showTab('{{ tid }}')" id="tab-{{ tid }}"
+      class="tab-btn {% if loop.first %}tab-active{% endif %}">{{ tlabel }}</button>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+  <!-- ═══════════════════ OVERVIEW ═══════════════════ -->
+  <div id="section-overview" class="tab-section">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Crew card -->
+      <div class="card">
+        <div class="card-header">
+          <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+          <h2 class="card-title">Crew ({{ trip.members|length }})</h2>
+        </div>
+        <div class="space-y-2">
+          {% for m in trip.members %}
+          <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+            <div class="avatar-dot flex-shrink-0" style="background:{{ m.color }};">{{ m.name[0]|upper }}</div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-gray-800 text-sm truncate">
+                {{ m.name }}
+                {% if m.name == me.name %}<span class="text-xs text-forest-600 font-normal">(you)</span>{% endif %}
+                {% if m.is_admin %}<span class="text-xs text-amber-600 font-semibold ml-1">Admin</span>{% endif %}
+              </div>
+              <div class="text-xs text-gray-400">{{ m.available_dates_list|length }} date{{ 's' if m.available_dates_list|length != 1 else '' }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <!-- Invite code -->
+        <div class="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl">
+          <p class="text-xs text-amber-700 font-semibold mb-1">Share code to invite friends</p>
+          <div class="flex items-center gap-2">
+            <code class="font-mono font-bold text-amber-800 text-sm tracking-widest flex-1">{{ trip.join_code }}</code>
+            <button onclick="copyCode()" class="text-xs text-amber-600 hover:text-amber-800 font-semibold cursor-pointer">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best dates -->
+      <div class="card lg:col-span-2">
+        <div class="card-header">
+          <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+          <h2 class="card-title">Date Availability</h2>
+        </div>
+
+        <!-- ── Suggest a new date window ── -->
+        <details class="mb-4 group">
+          <summary class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed border-forest-400 text-forest-700 bg-forest-50 text-sm font-semibold cursor-pointer select-none hover:bg-forest-100 hover:border-forest-500 transition-colors list-none [&::-webkit-details-marker]:hidden">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Suggest a date window
+          </summary>
+          <div class="mt-3 p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
+            <div class="flex flex-wrap items-end gap-3">
+              <div class="flex-1 min-w-[130px]">
+                <label class="field-label" for="sug-from">From</label>
+                <input type="date" id="sug-from" class="field-input">
+              </div>
+              <div class="flex-1 min-w-[130px]">
+                <label class="field-label" for="sug-to">To</label>
+                <input type="date" id="sug-to" class="field-input">
+              </div>
+              <div class="flex-1 min-w-[150px]">
+                <label class="field-label" for="sug-label">Label <span class="font-normal normal-case tracking-normal text-gray-400">(optional)</span></label>
+                <input type="text" id="sug-label" class="field-input" placeholder="e.g. Summer option" maxlength="100">
+              </div>
+              <button type="button" onclick="suggestPeriod()"
+                class="py-2.5 px-5 rounded-xl text-sm font-semibold text-white flex-shrink-0"
+                style="background:#059669;">Suggest</button>
+            </div>
+            <p id="sug-error" class="text-xs text-red-500 mt-2 hidden"></p>
+          </div>
+        </details>
+
+        {% if proposals %}
+        <!-- ── Proposed date windows (interactive voting) ── -->
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Can you make it? Select your dates</p>
+        <div class="space-y-2 mb-6">
+          {% for p in proposals %}
+          {% set vote_count = p.votes|length %}
+          {% set total = trip.members|length %}
+          {% set voted = p.id in my_vote_ids %}
+          <div class="flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer select-none transition-all
+            {% if voted %}bg-green-50 border-green-400{% else %}bg-gray-50 border-gray-200 hover:border-gray-300{% endif %}"
+            id="pcard-{{ p.id }}" onclick="toggleVote({{ p.id }}, this)">
+            <!-- Checkbox -->
+            <div class="flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
+              {% if voted %}bg-green-500 border-green-500{% else %}border-gray-300{% endif %}"
+              id="pcheck-{{ p.id }}">
+              {% if voted %}
+              <svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              {% endif %}
+            </div>
+            <!-- Date info -->
+            <div class="flex-1 min-w-0">
+              <span class="text-sm font-bold text-gray-800">{{ p.start | dmy }}{% if p.start != p.end %} → {{ p.end | dmy }}{% endif %}</span>
+              <span class="text-xs text-gray-400 ml-1.5">{{ p.days }} day{{ 's' if p.days != 1 }}</span>
+              {% if p.label %}<span class="ml-2 text-xs font-semibold text-forest-700">{{ p.label }}</span>{% endif %}
+            </div>
+            <!-- Vote count + voter pills -->
+            <div class="flex items-center gap-1.5 flex-shrink-0" id="pvoters-{{ p.id }}">
+              {% for v in p.votes %}
+              <div class="avatar-dot-xs" style="background:{{ v.member_color }};" title="{{ v.member_name }}">{{ v.member_name[0]|upper }}</div>
+              {% endfor %}
+              <span class="text-xs font-bold
+                {% if vote_count == total %}text-amber-600{% elif vote_count >= 2 %}text-forest-700{% else %}text-gray-400{% endif %} ml-1"
+                id="pvcount-{{ p.id }}">{{ vote_count }}/{{ total }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- ── Crew Calendar ── -->
+        <div class="flex items-center justify-between mb-3 mt-2">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Crew Calendar</p>
+          <a href="/trip/{{ trip.join_code }}/my-plan" class="text-xs text-forest-600 hover:underline font-medium">Edit my dates →</a>
+        </div>
+        <div class="space-y-2 mb-5">
+          {% for mr in member_ranges %}
+          {% set voted_proposals = member_proposal_votes.get(mr.id, []) %}
+          <div class="flex items-start gap-3 px-3 py-2.5 rounded-xl border
+            {% if voted_proposals %}bg-green-50 border-green-100{% else %}bg-gray-50 border-gray-100{% endif %}"
+            {% if mr.name == me.name %}id="crew-cal-row-me"{% endif %}>
+            <div class="avatar-dot-xs flex-shrink-0 mt-0.5" style="background:{{ mr.color }};">{{ mr.name[0]|upper }}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-semibold text-gray-800">{{ mr.name }}</span>
+                {% if mr.name == me.name %}<span class="text-xs font-normal text-gray-400">(you)</span>{% endif %}
+                <span id="{% if mr.name == me.name %}crew-cal-dot-me{% endif %}" class="w-2 h-2 rounded-full flex-shrink-0
+                  {% if voted_proposals %}bg-green-400{% else %}bg-gray-300{% endif %}"
+                  title="{% if voted_proposals %}Voted proposals{% else %}No votes yet{% endif %}"></span>
+              </div>
+              <div id="{% if mr.name == me.name %}crew-cal-chips-me{% endif %}" class="mt-1.5 flex flex-wrap gap-1">
+                {% if voted_proposals %}
+                {% for p in voted_proposals %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-white border border-green-300 text-green-700" data-pid="{{ p.id }}">
+                  <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  {{ p.start | dmy }}{% if p.start != p.end %} → {{ p.end | dmy }}{% endif %}
+                  {% if p.label %}<span class="opacity-60 ml-0.5">· {{ p.label }}</span>{% endif %}
+                </span>
+                {% endfor %}
+                {% else %}
+                <p class="text-xs text-gray-400">No dates selected yet</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+      </div>
+
+      <!-- Description -->
+      {% if trip.description %}
+      <div class="card lg:col-span-3">
+        <div class="card-header">
+          <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+          <h2 class="card-title">About this Trip</h2>
+        </div>
+        <p class="text-sm text-gray-600 leading-relaxed">{{ trip.description }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Active polls widget (overview dashboard) -->
+      {% set open_polls = trip.polls | selectattr('closed','equalto',false) | list %}
+      {% if open_polls %}
+      <div class="card lg:col-span-3">
+        <div class="card-header">
+          <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+          <h2 class="card-title">Active Polls</h2>
+          <a href="#polls" onclick="showTab('polls')" class="ml-auto text-xs text-forest-600 font-semibold hover:underline">See all</a>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {% for poll in open_polls[:4] %}
+          <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p class="text-sm font-semibold text-gray-800 mb-3">{{ poll.question }}</p>
+            <div class="space-y-1.5">
+              {% set my_poll_vote = voted_options.get(poll.id) %}
+              {% for opt in poll.options %}
+              {% set total_votes = poll.options | sum(attribute='vote_count') %}
+              {% set pct = ((opt.vote_count / total_votes * 100) | int) if total_votes else 0 %}
+              <button type="button" onclick="castVote({{ poll.id }}, {{ opt.id }}, this)"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left
+                {% if my_poll_vote == opt.id %}bg-forest-100 text-forest-800 font-semibold border border-forest-300
+                {% else %}bg-white border border-gray-200 hover:border-forest-300 text-gray-700{% endif %}">
+                <span class="flex-1">{{ opt.text }}</span>
+                <span class="text-xs font-bold text-gray-400" id="ovote-{{ opt.id }}">{{ opt.vote_count }}</span>
+              </button>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════ TODOS ═══════════════════ -->
+  <div id="section-todos" class="tab-section hidden">
+    <div class="card max-w-2xl">
+      <div class="card-header">
+        <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <h2 class="card-title">Group To-Dos</h2>
+        <span class="ml-auto text-xs text-gray-400" id="todos-count">{{ trip.todos|length }} items</span>
+      </div>
+      <div id="todos-list" class="space-y-2 mb-4">
+        {% for item in trip.todos %}
+        {% set my_todo_voted = item.id in my_todo_vote_ids %}
+        <div class="item-row" id="todo-{{ item.id }}">
+          <button type="button" class="check-btn {% if item.done %}checked{% endif %}" onclick="toggleShared('todos',{{ item.id }},this)">
+            {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
+          </button>
+          <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+          {% if item.assignee %}<span class="badge-green">{{ item.assignee }}</span>{% endif %}
+          <span class="text-xs text-gray-300 hidden sm:inline">{{ item.added_by }}</span>
+          <!-- Vote button -->
+          <button type="button" onclick="voteTodo({{ item.id }}, this)"
+            class="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold transition-colors
+            {% if my_todo_voted %}bg-forest-100 text-forest-700{% else %}bg-gray-100 text-gray-400 hover:bg-gray-200{% endif %}"
+            id="tvote-{{ item.id }}">
+            <svg width="11" height="11" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+            <span id="tvcount-{{ item.id }}">{{ item.vote_count }}</span>
+          </button>
+          <button type="button" class="del-btn" onclick="deleteShared('todos',{{ item.id }})">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 text-center py-4" id="todos-empty">No tasks yet.</p>
+        {% endfor %}
+      </div>
+      <form class="add-form" onsubmit="addShared(event,'todos')">
+        <input type="text" class="add-input" name="text" placeholder="New task…" required maxlength="300">
+        <select name="assignee" class="add-input" style="max-width:130px;">
+          <option value="">Anyone</option>
+          {% for m in trip.members %}<option value="{{ m.name }}" {% if m.name==me.name %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="add-btn">Add</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ EQUIPMENT ═══════════════════ -->
+  <div id="section-equipment" class="tab-section hidden">
+    <div class="card max-w-2xl">
+      <div class="card-header">
+        <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <h2 class="card-title">Group Equipment</h2>
+        <span class="ml-auto text-xs text-gray-400" id="equipment-count">{{ trip.equipment|length }} items</span>
+      </div>
+      <div id="equipment-list" class="space-y-2 mb-4">
+        {% for item in trip.equipment %}
+        <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border
+          {% if item.assignee == me.name %}bg-green-50 border-green-200
+          {% elif item.assignee %}bg-gray-50 border-gray-100
+          {% else %}bg-white border-gray-100{% endif %}"
+          id="equip-{{ item.id }}">
+          <button type="button" class="check-btn {% if item.done %}checked{% endif %} flex-shrink-0" onclick="toggleShared('equipment',{{ item.id }},this)">
+            {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
+          </button>
+          <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+          <div class="flex items-center gap-1 flex-shrink-0" id="equip-cell-{{ item.id }}">
+            {% if item.assignee == me.name %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+              <button type="button" onclick="assignItem('equipment',{{ item.id }},'')" class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>
+            {% elif item.assignee %}
+              <select onchange="assignItem('equipment',{{ item.id }},this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer">
+                <option value="{{ item.assignee }}" selected>{{ item.assignee }}</option>
+                <option value="">Unclaim</option>
+                {% for m in trip.members %}
+                  {% if m.name != item.assignee %}<option value="{{ m.name }}">{{ m.name }}</option>{% endif %}
+                {% endfor %}
+              </select>
+            {% else %}
+              <button type="button" onclick="assignItem('equipment',{{ item.id }},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
+              <select onchange="assignItem('equipment',{{ item.id }},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
+                <option value="">Assign…</option>
+                {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
+              </select>
+            {% endif %}
+          </div>
+          <button type="button" class="del-btn flex-shrink-0" onclick="deleteShared('equipment',{{ item.id }})">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 text-center py-4" id="equipment-empty">No equipment yet.</p>
+        {% endfor %}
+      </div>
+      <form class="add-form" onsubmit="addShared(event,'equipment')">
+        <input type="text" class="add-input" name="text" placeholder="e.g. Tent, sleeping bag…" required maxlength="300">
+        <select name="assignee" class="add-input" style="max-width:130px;">
+          <option value="">Anyone</option>
+          {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="add-btn">Add</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ FOOD ═══════════════════ -->
+  <div id="section-food" class="tab-section hidden">
+    <div class="card max-w-2xl">
+      <div class="card-header">
+        <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 000 2h1v9a1 1 0 001 1h10a1 1 0 001-1V6h1a1 1 0 100-2H3zm3 2h8v8H6V6zm3-4a1 1 0 011-1h0a1 1 0 011 1v1H9V2z"/></svg>
+        <h2 class="card-title">Group Food</h2>
+        <span class="ml-auto text-xs text-gray-400" id="food-count">{{ trip.food|length }} items</span>
+      </div>
+      <div id="food-list" class="space-y-2 mb-4">
+        {% for item in trip.food %}
+        <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border
+          {% if item.assignee == me.name %}bg-green-50 border-green-200
+          {% elif item.assignee %}bg-gray-50 border-gray-100
+          {% else %}bg-white border-gray-100{% endif %}"
+          id="food-{{ item.id }}">
+          <button type="button" class="check-btn {% if item.done %}checked{% endif %} flex-shrink-0" onclick="toggleFood({{ item.id }},this)">
+            {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
+          </button>
+          <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+          <div class="flex items-center gap-1 flex-shrink-0" id="food-cell-{{ item.id }}">
+            {% if item.assignee == me.name %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+              <button type="button" onclick="assignItem('food',{{ item.id }},'')" class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>
+            {% elif item.assignee %}
+              <select onchange="assignItem('food',{{ item.id }},this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer">
+                <option value="{{ item.assignee }}" selected>{{ item.assignee }}</option>
+                <option value="">Unclaim</option>
+                {% for m in trip.members %}
+                  {% if m.name != item.assignee %}<option value="{{ m.name }}">{{ m.name }}</option>{% endif %}
+                {% endfor %}
+              </select>
+            {% else %}
+              <button type="button" onclick="assignItem('food',{{ item.id }},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
+              <select onchange="assignItem('food',{{ item.id }},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
+                <option value="">Assign…</option>
+                {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
+              </select>
+            {% endif %}
+          </div>
+          <button type="button" class="del-btn flex-shrink-0" onclick="deleteFood({{ item.id }})">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 text-center py-4" id="food-empty">No food items yet.</p>
+        {% endfor %}
+      </div>
+      <form class="add-form" onsubmit="addFood(event)">
+        <input type="text" class="add-input" name="text" placeholder="e.g. Halloumi, olive oil…" required maxlength="300">
+        <select name="assignee" class="add-input" style="max-width:130px;">
+          <option value="">Anyone</option>
+          {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="add-btn">Add</button>
+      </form>
+    </div>
+  </div>
+  <div id="section-ideas" class="tab-section hidden">
+    <div class="card max-w-2xl">
+      <div class="card-header">
+        <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.298.211-.715.312-1H7.688c.101.285.297.702.312 1h4z"/></svg>
+        <h2 class="card-title">Ideas</h2>
+        <span class="ml-auto text-xs text-gray-400">Upvote the ones you love</span>
+      </div>
+      <div id="ideas-list" class="space-y-3 mb-4">
+        {% for idea in trip.ideas|sort(attribute='votes',reverse=true) %}
+        {% set my_voted = idea.id in my_idea_vote_ids %}
+        <div class="idea-card" id="idea-{{ idea.id }}">
+          <button type="button" class="upvote-btn {% if my_voted %}upvoted{% endif %}"
+            onclick="upvoteIdea({{ idea.id }}, this)">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+            <span class="votes-label" id="votes-{{ idea.id }}">{{ idea.votes }}</span>
+          </button>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-gray-700">{{ idea.text }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">by {{ idea.added_by }}</p>
+          </div>
+          {% if me.is_admin or idea.added_by == me.name %}
+          <button type="button" class="del-btn" onclick="deleteIdea({{ idea.id }})">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 text-center py-4" id="ideas-empty">No ideas yet. Drop yours below!</p>
+        {% endfor %}
+      </div>
+      <form class="add-form" onsubmit="addIdea(event)">
+        <input type="text" class="add-input" name="text" placeholder="Share an idea…" required maxlength="600">
+        <button type="submit" class="add-btn">Post</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ POLLS ═══════════════════ -->
+  <div id="section-polls" class="tab-section hidden">
+    <div class="space-y-4 max-w-2xl">
+
+      {% if me.is_admin %}
+      <!-- Create poll form -->
+      <div class="card">
+        <div class="card-header">
+          <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+          <h2 class="card-title">Create a Poll</h2>
+        </div>
+        <form id="poll-create-form" onsubmit="createPoll(event)">
+          <div class="mb-3">
+            <label class="field-label">Question</label>
+            <input type="text" id="poll-question" class="add-input w-full" placeholder="e.g. Which dates work best?" required maxlength="300">
+          </div>
+          <div class="mb-3">
+            <label class="field-label">Type</label>
+            <select id="poll-kind" class="add-input">
+              <option value="general">General</option>
+              <option value="date">Date poll</option>
+              <option value="location">Location poll</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="field-label">Options <span class="font-normal normal-case tracking-normal text-gray-400">(one per line, min 2)</span></label>
+            <textarea id="poll-options" class="add-input resize-none w-full" rows="4"
+              placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+          </div>
+          <button type="submit" class="add-btn w-full mt-2">Create Poll</button>
+        </form>
+      </div>
+      {% endif %}
+
+      <!-- Existing polls -->
+      <div id="polls-list" class="space-y-4">
+        {% for poll in trip.polls %}
+        {% set my_vote = voted_options.get(poll.id) %}
+        {% set total_votes = poll.options|sum(attribute='vote_count') %}
+        <div class="card" id="poll-{{ poll.id }}">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-widest
+                {% if poll.kind=='date' %}text-blue-500
+                {% elif poll.kind=='location' %}text-purple-500
+                {% else %}text-forest-600{% endif %}">
+                {{ poll.kind }} poll
+              </span>
+              <h3 class="font-bold text-gray-800 mt-0.5">{{ poll.question }}</h3>
+              <p class="text-xs text-gray-400">by {{ poll.created_by }} · {{ total_votes }} vote{{ 's' if total_votes!=1 else '' }}</p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              {% if poll.closed %}
+              <span class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-lg font-semibold">Closed</span>
+              {% endif %}
+              {% if me.is_admin %}
+              {% if not poll.closed %}
+              <button onclick="closePoll({{ poll.id }})" class="text-xs text-amber-600 hover:text-amber-800 font-semibold cursor-pointer">Close</button>
+              {% endif %}
+              <button onclick="deletePoll({{ poll.id }})" class="del-btn">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </button>
+              {% endif %}
+            </div>
+          </div>
+          <div class="space-y-2" id="poll-options-{{ poll.id }}">
+            {% for opt in poll.options %}
+            {% set pct = ((opt.vote_count / total_votes * 100) | round | int) if total_votes > 0 else 0 %}
+            <div class="poll-option {% if my_vote == opt.id %}poll-option-voted{% endif %}"
+                 onclick="{% if not poll.closed %}castVote({{ poll.id }},{{ opt.id }},this){% endif %}"
+                 data-option="{{ opt.id }}" id="pollopt-{{ opt.id }}"
+                 style="{% if not poll.closed %}cursor:pointer;{% endif %}">
+              <div class="poll-bar" style="width:{{ pct }}%;"></div>
+              <div class="flex items-center justify-between relative z-10">
+                <span class="text-sm font-medium text-gray-700">{{ opt.text }}</span>
+                <span class="text-xs font-bold text-gray-500">{{ opt.vote_count }} ({{ pct }}%)</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 text-center py-8" id="polls-empty">
+          {% if me.is_admin %}No polls yet. Create one above!{% else %}No polls yet. Ask the admin to create one.{% endif %}
+        </p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ ROUTE ═══════════════════ -->
+  <div id="section-route" class="tab-section hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Stop list + add form -->
+      <div class="card flex flex-col">
+        <div class="card-header">
+          <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+          <h2 class="card-title">Trip Route</h2>
+          <span class="ml-auto text-xs text-gray-400" id="stop-count-label">{{ trip.route_stops|length }} stop{{ 's' if trip.route_stops|length != 1 }}</span>
+        </div>
+
+        <!-- Stops list with connector line -->
+        <div id="route-list" class="mb-4 relative">
+          {% for stop in trip.route_stops %}
+          <div class="route-stop" draggable="true" id="stop-{{ stop.id }}" data-lat="{{ stop.lat or '' }}" data-lng="{{ stop.lng or '' }}">
+            <div class="drag-handle" title="Drag to reorder"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3.5" cy="3" r="1.5"/><circle cx="8.5" cy="3" r="1.5"/><circle cx="3.5" cy="8" r="1.5"/><circle cx="8.5" cy="8" r="1.5"/><circle cx="3.5" cy="13" r="1.5"/><circle cx="8.5" cy="13" r="1.5"/></svg></div>
+            <div class="route-stop-connector">
+              <div class="route-stop-number">{{ stop.position }}</div>
+              {% if not loop.last %}<div class="route-stop-line"></div>{% endif %}
+            </div>
+            <div class="flex-1 min-w-0 pb-4">
+              <div class="font-semibold text-gray-800 text-sm">{{ stop.name }}</div>
+              {% if stop.description %}<p class="text-xs text-gray-500 mt-0.5">{{ stop.description }}</p>{% endif %}
+              {% if stop.lat and stop.lng %}
+              <button type="button" onclick="flyToStop({{ stop.lat }}, {{ stop.lng }})"
+                class="text-xs text-forest-600 hover:text-forest-800 flex items-center gap-1 mt-1">
+                <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+                {{ stop.lat | round(4) }}, {{ stop.lng | round(4) }}
+              </button>
+              {% endif %}
+              <p class="text-xs text-gray-300 mt-0.5">added by {{ stop.added_by }}</p>
+            </div>
+            {% if me.is_admin or stop.added_by == me.name %}
+            <button type="button" class="del-btn flex-shrink-0" onclick="deleteStop({{ stop.id }})">
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            </button>
+            {% endif %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400 text-center py-4" id="route-empty">No stops yet. Search for a place below to add the first stop.</p>
+          {% endfor %}
+        </div>
+
+        <!-- Add stop form -->
+        <form id="route-form" class="space-y-2 border-t border-gray-100 pt-4 mt-auto" onsubmit="addStop(event)">
+          <input type="text" id="stop-name" class="add-input w-full" placeholder="Stop name *" required maxlength="150">
+          <input type="text" id="stop-desc" class="add-input w-full" placeholder="Description (optional)" maxlength="500">
+          <!-- Place search -->
+          <div class="relative">
+            <input type="text" id="stop-search" class="add-input w-full pr-8" placeholder="Search for a place…" autocomplete="off"
+              oninput="searchPlace(this.value)">
+            <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
+            <ul id="search-suggestions" class="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 hidden max-h-48 overflow-y-auto text-sm"></ul>
+          </div>
+          <input type="hidden" id="stop-lat">
+          <input type="hidden" id="stop-lng">
+          <p id="stop-coords-display" class="text-xs text-forest-600 hidden"></p>
+          <button type="submit" class="add-btn w-full">Add Stop</button>
+        </form>
+      </div>
+
+      <!-- Leaflet map -->
+      <div class="card p-0" style="height:520px;">
+        <div id="route-map" style="width:100%;height:520px;border-radius:inherit;"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const CODE = {{ trip.join_code | tojson }};
+const ME   = {{ me.name | tojson }};
+const IS_ADMIN = {{ 'true' if me.is_admin else 'false' }};
+const TOTAL_MEMBERS = {{ trip.members|length }};
+const MEMBERS = {{ trip.members | map(attribute='name') | list | tojson }};
+
+function fmtDMY(iso) {
+  if (!iso) return iso;
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ── Proposal voting ───────────────────────────────
+async function toggleVote(pid, cardEl) {
+  const checkEl  = document.getElementById(`pcheck-${pid}`);
+  const voted    = cardEl.classList.contains('border-green-400');
+  const attending = !voted;
+
+  if (attending) {
+    cardEl.classList.replace('border-gray-200', 'border-green-400');
+    cardEl.classList.replace('bg-gray-50', 'bg-green-50');
+    checkEl.classList.replace('border-gray-300', 'border-green-500');
+    checkEl.classList.add('bg-green-500');
+    checkEl.innerHTML = `<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+  } else {
+    cardEl.classList.replace('border-green-400', 'border-gray-200');
+    cardEl.classList.replace('bg-green-50', 'bg-gray-50');
+    checkEl.classList.replace('border-green-500', 'border-gray-300');
+    checkEl.classList.remove('bg-green-500');
+    checkEl.innerHTML = '';
+  }
+
+  const res  = await fetch(`/api/${CODE}/proposal-vote`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ proposal_id: pid, attending }),
+  });
+  const data = await res.json();
+  if (!data.ok) return;
+
+  // Update voter avatars + count
+  const votersEl = document.getElementById(`pvoters-${pid}`);
+  const voters   = data.proposal.voters;
+  const cnt      = voters.length;
+  const colorCls = cnt === TOTAL_MEMBERS ? 'text-amber-600' : cnt >= 2 ? 'text-forest-700' : 'text-gray-400';
+  votersEl.innerHTML =
+    voters.map(v => `<div class="avatar-dot-xs" style="background:${v.color};" title="${v.name}">${v.name[0].toUpperCase()}</div>`).join('') +
+    `<span class="text-xs font-bold ${colorCls} ml-1" id="pvcount-${pid}">${cnt}/${TOTAL_MEMBERS}</span>`;
+
+  // ── Live-update Crew Calendar for current user ──
+  const rowEl   = document.getElementById('crew-cal-row-me');
+  const chipsEl = document.getElementById('crew-cal-chips-me');
+  const dotEl   = document.getElementById('crew-cal-dot-me');
+  if (!chipsEl || !rowEl) return;
+
+  if (attending) {
+    // Remove placeholder if present
+    const placeholder = chipsEl.querySelector('p');
+    if (placeholder) placeholder.remove();
+    // Add chip if not already there
+    if (!chipsEl.querySelector(`[data-pid="${pid}"]`)) {
+      const p = data.proposal;
+      const startDMY = fmtDMY(p.start);
+      const endDMY   = fmtDMY(p.end);
+      const label    = p.label ? `<span class="opacity-60 ml-0.5">· ${p.label}</span>` : '';
+      const endPart  = p.start !== p.end ? ` → ${endDMY}` : '';
+      const chip = document.createElement('span');
+      chip.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-white border border-green-300 text-green-700';
+      chip.dataset.pid = pid;
+      chip.innerHTML = `<svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>${startDMY}${endPart}${label}`;
+      chipsEl.appendChild(chip);
+    }
+    rowEl.classList.replace('bg-gray-50', 'bg-green-50');
+    rowEl.classList.replace('border-gray-100', 'border-green-100');
+    if (dotEl) { dotEl.classList.replace('bg-gray-300', 'bg-green-400'); }
+  } else {
+    // Remove chip for this proposal
+    const chip = chipsEl.querySelector(`[data-pid="${pid}"]`);
+    if (chip) chip.remove();
+    // If no chips left, show placeholder
+    if (!chipsEl.querySelector('[data-pid]')) {
+      chipsEl.innerHTML = '<p class="text-xs text-gray-400">No dates selected yet</p>';
+      rowEl.classList.replace('bg-green-50', 'bg-gray-50');
+      rowEl.classList.replace('border-green-100', 'border-gray-100');
+      if (dotEl) { dotEl.classList.replace('bg-green-400', 'bg-gray-300'); }
+    }
+  }
+}
+
+// ── Tabs ──────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+  document.getElementById('section-' + id).classList.remove('hidden');
+  document.getElementById('tab-' + id).classList.add('tab-active');
+  location.hash = id;
+  if (id === 'route') setTimeout(() => initRouteMap(), 50);
+}
+// Restore tab from hash
+const h = location.hash.replace('#','');
+if (h) showTab(h);
+
+// ── Copy join code ──────────────────────────────
+function copyCode() {
+  navigator.clipboard.writeText(CODE).then(() => {
+    const el = document.getElementById('code-display');
+    if (el) { const old = el.textContent; el.textContent = 'Copied!'; setTimeout(() => el.textContent = old, 1500); }
+  });
+}
+
+// ── Shared lists (todos / equipment) ──────────────
+function renderAssigneeCell(type, id, assignee) {
+  const prefix = type === 'equipment' ? 'equip' : type;
+  const cell = document.getElementById(`${prefix}-cell-${id}`);
+  if (!cell) return;
+  const row = document.getElementById(`${prefix}-${id}`);
+  if (row) {
+    row.classList.remove('bg-green-50','border-green-200','bg-gray-50','border-gray-100','bg-white');
+    row.classList.add(...(assignee === ME ? ['bg-green-50','border-green-200'] : assignee ? ['bg-gray-50','border-gray-100'] : ['bg-white','border-gray-100']));
+  }
+  if (assignee === ME) {
+    cell.innerHTML = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+      <button type="button" onclick="assignItem('${type}',${id},'')" class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>`;
+  } else if (assignee) {
+    const opts = MEMBERS.filter(n => n !== assignee).map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+    cell.innerHTML = `<select onchange="assignItem('${type}',${id},this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer">
+      <option value="${escHtml(assignee)}" selected>${escHtml(assignee)}</option>
+      <option value="">Unclaim</option>${opts}</select>`;
+  } else {
+    const opts = MEMBERS.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+    cell.innerHTML = `<button type="button" onclick="assignItem('${type}',${id},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
+      <select onchange="assignItem('${type}',${id},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
+        <option value="">Assign…</option>${opts}</select>`;
+  }
+}
+
+async function assignItem(type, id, assignee) {
+  const ep = type === 'food' ? 'food' : 'equipment';
+  const res = await fetch(`/api/${CODE}/${ep}/${id}/assign`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assignee })
+  });
+  if (!res.ok) return;
+  const item = await res.json();
+  renderAssigneeCell(type, id, item.assignee);
+}
+
+async function addShared(e, type) {
+  e.preventDefault();
+  const form = e.target;
+  const body = { text: form.text.value.trim() };
+  if ((type === 'todos' || type === 'equipment') && form.assignee) body.assignee = form.assignee.value;
+  if (!body.text) return;
+  const res = await fetch(`/api/${CODE}/${type}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!res.ok) return;
+  const item = await res.json();
+  const listEl = document.getElementById(`${type}-list`);
+  document.getElementById(`${type}-empty`)?.remove();
+  const prefix = type === 'todos' ? 'todo' : 'equip';
+  const div = document.createElement('div');
+  if (type === 'equipment') {
+    div.className = 'flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-white border-gray-100';
+    div.id = `equip-${item.id}`;
+    const opts = MEMBERS.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+    div.innerHTML = `
+      <button type="button" class="check-btn flex-shrink-0" onclick="toggleShared('equipment',${item.id},this)"></button>
+      <span class="flex-1 text-sm text-gray-700">${escHtml(item.text)}</span>
+      <div class="flex items-center gap-1 flex-shrink-0" id="equip-cell-${item.id}">
+        <button type="button" onclick="assignItem('equipment',${item.id},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
+        <select onchange="assignItem('equipment',${item.id},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
+          <option value="">Assign…</option>${opts}</select>
+      </div>
+      <button type="button" class="del-btn flex-shrink-0" onclick="deleteShared('equipment',${item.id})">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>`;
+    if (item.assignee) renderAssigneeCell('equipment', item.id, item.assignee);
+  } else {
+    div.className = 'item-row';
+    div.id = `todo-${item.id}`;
+    div.innerHTML = `
+      <button type="button" class="check-btn" onclick="toggleShared('${type}',${item.id},this)"></button>
+      <span class="flex-1 text-sm text-gray-700">${escHtml(item.text)}</span>
+      ${item.assignee ? `<span class="badge-green">${escHtml(item.assignee)}</span>` : ''}
+      <button type="button" class="del-btn" onclick="deleteShared('${type}',${item.id})">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>`;
+  }
+  listEl.appendChild(div);
+  form.text.value = '';
+  updateCount(type === 'todos' ? 'todos' : 'equipment');
+}
+
+async function toggleShared(type, id, btn) {
+  const res = await fetch(`/api/${CODE}/${type}/${id}/toggle`, { method:'POST' });
+  if (!res.ok) return;
+  const item = await res.json();
+  const prefix = type === 'todos' ? 'todo' : 'equip';
+  const row = document.getElementById(`${prefix}-${id}`);
+  const span = row.querySelector('span.flex-1');
+  if (item.done) {
+    btn.classList.add('checked');
+    btn.innerHTML = `<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+    span.classList.add('line-through','text-gray-400'); span.classList.remove('text-gray-700');
+  } else {
+    btn.classList.remove('checked'); btn.innerHTML = '';
+    span.classList.remove('line-through','text-gray-400'); span.classList.add('text-gray-700');
+  }
+}
+
+async function deleteShared(type, id) {
+  if (!confirm('Delete this item?')) return;
+  const res = await fetch(`/api/${CODE}/${type}/${id}`, { method:'DELETE' });
+  if (!res.ok) return;
+  const prefix = type === 'todos' ? 'todo' : 'equip';
+  document.getElementById(`${prefix}-${id}`)?.remove();
+  updateCount(type === 'todos' ? 'todos' : 'equipment');
+}
+
+function updateCount(key) {
+  const el = document.getElementById(`${key}-count`);
+  if (!el) return;
+  const list = document.getElementById(`${key}-list`);
+  if (!list) return;
+  const n = list.children.length;
+  el.textContent = `${n} item${n!==1?'s':''}`;
+}
+
+// ── Food ──────────────────────────────────────────
+async function addFood(e) {
+  e.preventDefault();
+  const form = e.target;
+  const body = { text: form.text.value.trim(), assignee: form.assignee ? form.assignee.value : '' };
+  if (!body.text) return;
+  const res = await fetch(`/api/${CODE}/food`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!res.ok) return;
+  const item = await res.json();
+  document.getElementById('food-empty')?.remove();
+  const div = document.createElement('div');
+  div.className = 'flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-white border-gray-100';
+  div.id = `food-${item.id}`;
+  const opts = MEMBERS.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+  div.innerHTML = `
+    <button type="button" class="check-btn flex-shrink-0" onclick="toggleFood(${item.id},this)"></button>
+    <span class="flex-1 text-sm text-gray-700">${escHtml(item.text)}</span>
+    <div class="flex items-center gap-1 flex-shrink-0" id="food-cell-${item.id}">
+      <button type="button" onclick="assignItem('food',${item.id},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
+      <select onchange="assignItem('food',${item.id},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
+        <option value="">Assign…</option>${opts}</select>
+    </div>
+    <button type="button" class="del-btn flex-shrink-0" onclick="deleteFood(${item.id})">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    </button>`;
+  document.getElementById('food-list').appendChild(div);
+  if (item.assignee) renderAssigneeCell('food', item.id, item.assignee);
+  form.text.value = '';
+  updateCount('food');
+}
+
+async function toggleFood(id, btn) {
+  const res = await fetch(`/api/${CODE}/food/${id}/toggle`, { method:'POST' });
+  if (!res.ok) return;
+  const item = await res.json();
+  const row = document.getElementById(`food-${id}`);
+  const span = row.querySelector('span.flex-1');
+  if (item.done) {
+    btn.classList.add('checked');
+    btn.innerHTML = `<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+    span.classList.add('line-through','text-gray-400'); span.classList.remove('text-gray-700');
+  } else {
+    btn.classList.remove('checked'); btn.innerHTML = '';
+    span.classList.remove('line-through','text-gray-400'); span.classList.add('text-gray-700');
+  }
+}
+
+async function deleteFood(id) {
+  if (!confirm('Delete this item?')) return;
+  const res = await fetch(`/api/${CODE}/food/${id}`, { method:'DELETE' });
+  if (!res.ok) return;
+  document.getElementById(`food-${id}`)?.remove();
+  updateCount('food');
+}
+
+// ── Ideas ─────────────────────────────────────────
+async function addIdea(e) {
+  e.preventDefault();
+  const form = e.target;
+  const text = form.text.value.trim();
+  if (!text) return;
+  const res = await fetch(`/api/${CODE}/ideas`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text}) });
+  if (!res.ok) return;
+  const idea = await res.json();
+  document.getElementById('ideas-empty')?.remove();
+  const list = document.getElementById('ideas-list');
+  const div = document.createElement('div');
+  div.className = 'idea-card';
+  div.id = `idea-${idea.id}`;
+  div.innerHTML = `
+    <button type="button" class="upvote-btn" onclick="upvoteIdea(${idea.id},this)">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+      <span class="votes-label" id="votes-${idea.id}">0</span>
+    </button>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm text-gray-700">${escHtml(idea.text)}</p>
+      <p class="text-xs text-gray-400 mt-0.5">by ${escHtml(ME)}</p>
+    </div>
+    <button type="button" class="del-btn" onclick="deleteIdea(${idea.id})">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    </button>`;
+  list.appendChild(div);
+  form.text.value = '';
+}
+
+async function upvoteIdea(id, btn) {
+  const res = await fetch(`/api/${CODE}/ideas/${id}/upvote`, { method:'POST' });
+  if (!res.ok) return;
+  const idea = await res.json();
+  document.getElementById(`votes-${id}`).textContent = idea.votes;
+  btn.classList.toggle('upvoted', idea.voter_ids.includes({{ me.id }}));
+}
+
+async function deleteIdea(id) {
+  if (!confirm('Delete this idea?')) return;
+  const res = await fetch(`/api/${CODE}/ideas/${id}`, { method:'DELETE' });
+  if (!res.ok) return;
+  document.getElementById(`idea-${id}`)?.remove();
+}
+
+async function voteTodo(id, btn) {
+  const res = await fetch(`/api/${CODE}/todos/${id}/vote`, { method:'POST' });
+  if (!res.ok) return;
+  const todo = await res.json();
+  document.getElementById(`tvcount-${id}`).textContent = todo.vote_count;
+  const voted = todo.voter_ids.includes({{ me.id }});
+  btn.classList.toggle('bg-forest-100', voted);
+  btn.classList.toggle('text-forest-700', voted);
+  btn.classList.toggle('bg-gray-100', !voted);
+  btn.classList.toggle('text-gray-400', !voted);
+}
+
+async function suggestPeriod() {
+  const start = document.getElementById('sug-from').value;
+  const end   = document.getElementById('sug-to').value;
+  const label = document.getElementById('sug-label').value.trim();
+  const errEl = document.getElementById('sug-error');
+  errEl.classList.add('hidden');
+  if (!start || !end) { errEl.textContent = 'Please select both dates.'; errEl.classList.remove('hidden'); return; }
+  if (end < start)   { errEl.textContent = 'End must be on or after start.'; errEl.classList.remove('hidden'); return; }
+  const res = await fetch(`/api/${CODE}/suggest-period`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start, end, label }),
+  });
+  const data = await res.json();
+  if (!data.ok) { errEl.textContent = data.error || 'Error saving.'; errEl.classList.remove('hidden'); return; }
+  document.getElementById('sug-from').value  = '';
+  document.getElementById('sug-to').value    = '';
+  document.getElementById('sug-label').value = '';
+  // Append the new proposal card to the proposals list
+  const p = data.proposal;
+  const days = p.days;
+  const total = {{ trip.members|length }};
+  const listEl = document.querySelector('.space-y-2.mb-6');
+  if (listEl) {
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer select-none transition-all bg-gray-50 border-gray-200 hover:border-gray-300';
+    div.id = `pcard-${p.id}`;
+    div.setAttribute('onclick', `toggleVote(${p.id}, this)`);
+    div.innerHTML = `
+      <div class="flex-shrink-0 w-5 h-5 rounded-md border-2 border-gray-300 flex items-center justify-center" id="pcheck-${p.id}"></div>
+      <div class="flex-1 min-w-0">
+        <span class="text-sm font-bold text-gray-800">${fmtDMY(p.start)}${p.start !== p.end ? ' → '+fmtDMY(p.end) : ''}</span>
+        <span class="text-xs text-gray-400 ml-1.5">${days} day${days !== 1 ? 's' : ''}</span>
+        ${p.label ? `<span class="ml-2 text-xs font-semibold" style="color:#059669;">${p.label}</span>` : ''}
+        ${p.suggested_by ? `<span class="ml-2 text-xs text-gray-400">by ${p.suggested_by}</span>` : ''}
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0" id="pvoters-${p.id}">
+        <span class="text-xs font-bold text-gray-400 ml-1" id="pvcount-${p.id}">0/${total}</span>
+      </div>`;
+    listEl.appendChild(div);
+  }
+}
+
+// ── Polls ─────────────────────────────────────────
+async function createPoll(e) {
+  e.preventDefault();
+  const question = document.getElementById('poll-question').value.trim();
+  const kind     = document.getElementById('poll-kind').value;
+  const rawOpts  = document.getElementById('poll-options').value;
+  const options  = rawOpts.split('\n').map(s=>s.trim()).filter(Boolean);
+  if (!question || options.length < 2) { alert('Please enter a question and at least 2 options.'); return; }
+  const res = await fetch(`/api/${CODE}/polls`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({question, kind, options})
+  });
+  if (!res.ok) return;
+  const poll = await res.json();
+  document.getElementById('polls-empty')?.remove();
+  renderPoll(poll, null);
+  document.getElementById('poll-question').value = '';
+  document.getElementById('poll-options').value = '';
+}
+
+function renderPoll(poll, myVote) {
+  const totalVotes = poll.options.reduce((s,o) => s + o.vote_count, 0);
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.id = `poll-${poll.id}`;
+  let optHtml = '';
+  for (const opt of poll.options) {
+    const pct = totalVotes > 0 ? Math.round(opt.vote_count / totalVotes * 100) : 0;
+    optHtml += `<div class="poll-option ${myVote===opt.id?'poll-option-voted':''}"
+      onclick="castVote(${poll.id},${opt.id},this)" data-option="${opt.id}" id="pollopt-${opt.id}" style="cursor:pointer;">
+      <div class="poll-bar" style="width:${pct}%;"></div>
+      <div class="flex items-center justify-between relative z-10">
+        <span class="text-sm font-medium text-gray-700">${escHtml(opt.text)}</span>
+        <span class="text-xs font-bold text-gray-500">${opt.vote_count} (${pct}%)</span>
+      </div>
+    </div>`;
+  }
+  const kindColor = poll.kind==='date'?'text-blue-500':poll.kind==='location'?'text-purple-500':'text-forest-600';
+  div.innerHTML = `
+    <div class="flex items-start justify-between gap-3 mb-3">
+      <div>
+        <span class="text-xs font-bold uppercase tracking-widest ${kindColor}">${poll.kind} poll</span>
+        <h3 class="font-bold text-gray-800 mt-0.5">${escHtml(poll.question)}</h3>
+        <p class="text-xs text-gray-400">by ${escHtml(poll.created_by)} · ${totalVotes} vote${totalVotes!==1?'s':''}</p>
+      </div>
+      <div class="flex gap-2 flex-shrink-0">
+        ${IS_ADMIN ? `<button onclick="closePoll(${poll.id})" class="text-xs text-amber-600 hover:text-amber-800 font-semibold cursor-pointer">Close</button>
+        <button onclick="deletePoll(${poll.id})" class="del-btn"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>` : ''}
+      </div>
+    </div>
+    <div class="space-y-2" id="poll-options-${poll.id}">${optHtml}</div>`;
+  document.getElementById('polls-list').appendChild(div);
+}
+
+async function castVote(pollId, optionId, el) {
+  const res = await fetch(`/api/${CODE}/polls/${pollId}/vote`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({option_id: optionId})
+  });
+  if (!res.ok) return;
+  const poll = await res.json();
+  // Re-render options in place
+  const totalVotes = poll.options.reduce((s,o) => s + o.vote_count, 0);
+  const container = document.getElementById(`poll-options-${pollId}`);
+  container.querySelectorAll('.poll-option').forEach(row => {
+    const oid = parseInt(row.dataset.option);
+    const opt = poll.options.find(o => o.id === oid);
+    if (!opt) return;
+    const pct = totalVotes > 0 ? Math.round(opt.vote_count / totalVotes * 100) : 0;
+    row.querySelector('.poll-bar').style.width = pct + '%';
+    const spans = row.querySelectorAll('span');
+    spans[1].textContent = `${opt.vote_count} (${pct}%)`;
+    row.classList.toggle('poll-option-voted', oid === optionId);
+  });
+}
+
+async function closePoll(id) {
+  if (!confirm('Close this poll?')) return;
+  const res = await fetch(`/api/${CODE}/polls/${id}/close`, { method:'POST' });
+  if (!res.ok) return;
+  const pollEl = document.getElementById(`poll-${id}`);
+  if (pollEl) {
+    const btns = pollEl.querySelectorAll('button');
+    btns.forEach(b => { if (b.textContent.trim()==='Close') b.remove(); });
+    const header = pollEl.querySelector('.flex.items-start > div:first-child');
+    if (header) {
+      const badge = document.createElement('span');
+      badge.className = 'text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-lg font-semibold ml-2';
+      badge.textContent = 'Closed';
+      header.appendChild(badge);
+    }
+  }
+}
+
+async function deletePoll(id) {
+  if (!confirm('Delete this poll?')) return;
+  const res = await fetch(`/api/${CODE}/polls/${id}`, { method:'DELETE' });
+  if (!res.ok) return;
+  document.getElementById(`poll-${id}`)?.remove();
+}
+
+// ── Route map (Leaflet) ───────────────────────────
+let routeMap = null;
+let routeLine = null;
+let routeMarkers = []; // {id, lat, lng, marker}
+let previewMarker = null;
+
+const INITIAL_STOPS = {{ trip.route_stops | map(attribute='id') | list | tojson }};
+
+function numberedIcon(n, dim) {
+  const size = dim || 30;
+  return L.divIcon({
+    className: '',
+    html: `<div style="background:#059669;color:white;width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${size < 28 ? 11 : 13}px;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25)">${n}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor: [0, -(size/2 + 4)],
+  });
+}
+
+function initRouteMap() {
+  if (routeMap) { routeMap.invalidateSize(); return; }
+  routeMap = L.map('route-map', { zoomControl: true }).setView([38.2, 24.0], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(routeMap);
+
+  // Load existing stops from DOM
+  document.querySelectorAll('#route-list [data-lat]').forEach((el, i) => {
+    const id  = parseInt(el.id.replace('stop-', ''));
+    const lat = parseFloat(el.dataset.lat);
+    const lng = parseFloat(el.dataset.lng);
+    const name = el.querySelector('.font-semibold')?.textContent?.trim() || `Stop ${i+1}`;
+    if (lat && lng) {
+      const m = L.marker([lat, lng], { icon: numberedIcon(i+1) })
+        .addTo(routeMap).bindPopup(`<b>${escHtml(name)}</b>`);
+      routeMarkers.push({ id, lat, lng, marker: m });
+    }
+  });
+
+  // Ensure Leaflet sees the real dimensions before fitting bounds
+  routeMap.invalidateSize();
+  drawRouteLine();
+}
+
+function drawRouteLine() {
+  if (routeLine) { routeMap.removeLayer(routeLine); routeLine = null; }
+  const coords = routeMarkers.map(m => [m.lat, m.lng]);
+  if (coords.length >= 2) {
+    routeLine = L.polyline(coords, {
+      color: '#059669', weight: 5, opacity: 0.85,
+    }).addTo(routeMap);
+  }
+  if (coords.length === 1) {
+    routeMap.setView(coords[0], 12);
+  } else if (coords.length >= 2) {
+    routeMap.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
+  }
+}
+
+function flyToStop(lat, lng) {
+  if (!routeMap) return;
+  showTab('route');
+  setTimeout(() => { routeMap.invalidateSize(); routeMap.flyTo([lat, lng], 14); }, 100);
+}
+
+// ── Place search (Nominatim) ──────────────────────
+let _searchTimer = null;
+function searchPlace(query) {
+  clearTimeout(_searchTimer);
+  const sug = document.getElementById('search-suggestions');
+  if (query.length < 3) { sug.classList.add('hidden'); return; }
+  _searchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const results = await res.json();
+      sug.innerHTML = '';
+      if (!results.length) {
+        sug.innerHTML = '<li class="px-3 py-2 text-gray-400 text-xs">No results</li>';
+        sug.classList.remove('hidden');
+        return;
+      }
+      results.forEach(r => {
+        const li = document.createElement('li');
+        li.className = 'px-3 py-2 hover:bg-forest-50 cursor-pointer text-gray-700 border-b border-gray-50 last:border-0';
+        li.textContent = r.display_name;
+        li.onclick = () => selectPlace(r);
+        sug.appendChild(li);
+      });
+      sug.classList.remove('hidden');
+    } catch(e) { /* network error */ }
+  }, 400);
+}
+
+function selectPlace(r) {
+  const lat = parseFloat(r.lat);
+  const lng = parseFloat(r.lon);
+  document.getElementById('stop-lat').value = lat;
+  document.getElementById('stop-lng').value = lng;
+  // Use short name for stop-name if empty
+  const nameEl = document.getElementById('stop-name');
+  if (!nameEl.value) {
+    nameEl.value = r.display_name.split(',')[0].trim();
+  }
+  // Show coords label
+  const disp = document.getElementById('stop-coords-display');
+  disp.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  disp.classList.remove('hidden');
+  // Hide suggestions, clear search input
+  document.getElementById('search-suggestions').classList.add('hidden');
+  document.getElementById('stop-search').value = r.display_name.split(',')[0].trim();
+  // Preview on map
+  if (routeMap) {
+    if (previewMarker) routeMap.removeLayer(previewMarker);
+    previewMarker = L.circleMarker([lat, lng], {
+      radius: 8, color: '#059669', fillColor: '#d1fae5', fillOpacity: 0.9, weight: 2
+    }).addTo(routeMap).bindPopup(r.display_name.split(',')[0]).openPopup();
+    routeMap.flyTo([lat, lng], 13);
+  }
+}
+
+// Close suggestions on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('#stop-search') && !e.target.closest('#search-suggestions')) {
+    document.getElementById('search-suggestions')?.classList.add('hidden');
+  }
+});
+
+// ── Rebuild connector lines ───────────────────────
+function rebuildConnectors() {
+  const rows = document.querySelectorAll('#route-list .route-stop');
+  rows.forEach((row, i) => {
+    let lineEl = row.querySelector('.route-stop-line');
+    if (i < rows.length - 1) {
+      if (!lineEl) {
+        lineEl = document.createElement('div');
+        lineEl.className = 'route-stop-line';
+        row.querySelector('.route-stop-connector').appendChild(lineEl);
+      }
+    } else {
+      lineEl?.remove();
+    }
+    // Update number
+    const numEl = row.querySelector('.route-stop-number');
+    if (numEl) numEl.textContent = i + 1;
+  });
+  // Update count label
+  const lbl = document.getElementById('stop-count-label');
+  if (lbl) { const n = rows.length; lbl.textContent = `${n} stop${n !== 1 ? 's' : ''}`; }
+}
+
+// ── Drag-to-reorder ─────────────────────────────
+let dragSrcEl = null;
+
+function initDrag() {
+  const list = document.getElementById('route-list');
+  if (!list || list._dragInited) return;
+  list._dragInited = true;
+
+  list.addEventListener('dragstart', e => {
+    const row = e.target.closest('.route-stop');
+    if (!row) return;
+    dragSrcEl = row;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', row.id);
+    setTimeout(() => row.style.opacity = '0.35', 0);
+  });
+
+  list.addEventListener('dragend', () => {
+    list.querySelectorAll('.route-stop').forEach(r => {
+      r.style.opacity = '';
+      r.classList.remove('drag-over');
+    });
+    dragSrcEl = null;
+  });
+
+  list.addEventListener('dragover', e => {
+    const row = e.target.closest('.route-stop');
+    if (!row || !dragSrcEl || row === dragSrcEl) return;
+    e.preventDefault();
+    list.querySelectorAll('.route-stop').forEach(r => r.classList.remove('drag-over'));
+    row.classList.add('drag-over');
+  });
+
+  list.addEventListener('dragleave', e => {
+    const row = e.target.closest('.route-stop');
+    if (row && !row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+  });
+
+  list.addEventListener('drop', e => {
+    const row = e.target.closest('.route-stop');
+    if (!row || !dragSrcEl || row === dragSrcEl) return;
+    e.preventDefault();
+    const rows = [...list.querySelectorAll('.route-stop')];
+    if (rows.indexOf(row) > rows.indexOf(dragSrcEl)) row.after(dragSrcEl);
+    else row.before(dragSrcEl);
+    list.querySelectorAll('.route-stop').forEach(r => { r.style.opacity = ''; r.classList.remove('drag-over'); });
+    dragSrcEl = null;
+    saveOrder();
+  });
+}
+
+async function saveOrder() {
+  rebuildConnectors();
+  const ids = [...document.querySelectorAll('#route-list .route-stop')].map(el => parseInt(el.id.replace('stop-', '')));
+  await fetch(`/api/${CODE}/route/reorder`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order: ids })
+  });
+  // Rebuild map markers in new order
+  if (routeMap) {
+    routeMarkers.forEach(m => routeMap.removeLayer(m.marker));
+    routeMarkers = [];
+    document.querySelectorAll('#route-list [data-lat]').forEach((el, i) => {
+      const id  = parseInt(el.id.replace('stop-', ''));
+      const lat = parseFloat(el.dataset.lat);
+      const lng = parseFloat(el.dataset.lng);
+      const name = el.querySelector('.font-semibold')?.textContent?.trim() || `Stop ${i+1}`;
+      if (lat && lng) {
+        const m = L.marker([lat, lng], { icon: numberedIcon(i+1) })
+          .addTo(routeMap).bindPopup(`<b>${escHtml(name)}</b>`);
+        routeMarkers.push({ id, lat, lng, marker: m });
+      }
+    });
+    drawRouteLine();
+  }
+}
+
+// ── Add stop ──────────────────────────────────────
+async function addStop(e) {
+  e.preventDefault();
+  const name = document.getElementById('stop-name').value.trim();
+  if (!name) return;
+  const lat = document.getElementById('stop-lat').value;
+  const lng = document.getElementById('stop-lng').value;
+  const body = {
+    name,
+    description: document.getElementById('stop-desc').value.trim(),
+    lat: lat ? parseFloat(lat) : null,
+    lng: lng ? parseFloat(lng) : null,
+  };
+  const res = await fetch(`/api/${CODE}/route`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) return;
+  const stop = await res.json();
+
+  // Remove empty placeholder
+  document.getElementById('route-empty')?.remove();
+
+  // Append stop row
+  const list = document.getElementById('route-list');
+  const pos  = list.querySelectorAll('.route-stop').length + 1;
+  const div  = document.createElement('div');
+  div.className = 'route-stop';
+  div.setAttribute('draggable', 'true');
+  div.id = `stop-${stop.id}`;
+  div.dataset.lat = stop.lat || '';
+  div.dataset.lng = stop.lng || '';
+  div.innerHTML = `
+    <div class="drag-handle" title="Drag to reorder"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3.5" cy="3" r="1.5"/><circle cx="8.5" cy="3" r="1.5"/><circle cx="3.5" cy="8" r="1.5"/><circle cx="8.5" cy="8" r="1.5"/><circle cx="3.5" cy="13" r="1.5"/><circle cx="8.5" cy="13" r="1.5"/></svg></div>
+    <div class="route-stop-connector">
+      <div class="route-stop-number">${pos}</div>
+    </div>
+    <div class="flex-1 min-w-0 pb-4">
+      <div class="font-semibold text-gray-800 text-sm">${escHtml(stop.name)}</div>
+      ${stop.description ? `<p class="text-xs text-gray-500 mt-0.5">${escHtml(stop.description)}</p>` : ''}
+      ${stop.lat && stop.lng ? `<button type="button" onclick="flyToStop(${stop.lat},${stop.lng})" class="text-xs text-forest-600 hover:text-forest-800 flex items-center gap-1 mt-1">
+        <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+        ${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}</button>` : ''}
+      <p class="text-xs text-gray-300 mt-0.5">added by ${escHtml(ME)}</p>
+    </div>
+    <button type="button" class="del-btn flex-shrink-0" onclick="deleteStop(${stop.id})">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    </button>`;
+  list.appendChild(div);
+  rebuildConnectors();
+
+  // Add to map
+  if (routeMap && stop.lat && stop.lng) {
+    if (previewMarker) { routeMap.removeLayer(previewMarker); previewMarker = null; }
+    const m = L.marker([stop.lat, stop.lng], { icon: numberedIcon(pos) })
+      .addTo(routeMap).bindPopup(`<b>${escHtml(stop.name)}</b>`);
+    routeMarkers.push({ id: stop.id, lat: stop.lat, lng: stop.lng, marker: m });
+    drawRouteLine();
+  }
+
+  // Reset form
+  ['stop-name','stop-desc','stop-search'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  ['stop-lat','stop-lng'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('stop-coords-display')?.classList.add('hidden');
+}
+
+async function deleteStop(id) {
+  if (!confirm('Remove this stop?')) return;
+  const res = await fetch(`/api/${CODE}/route/${id}`, { method: 'DELETE' });
+  if (!res.ok) return;
+  document.getElementById(`stop-${id}`)?.remove();
+  if (!document.querySelector('#route-list .route-stop')) {
+    const emp = document.createElement('p');
+    emp.id = 'route-empty';
+    emp.className = 'text-sm text-gray-400 text-center py-4';
+    emp.textContent = 'No stops yet. Search for a place below to add the first stop.';
+    document.getElementById('route-list').appendChild(emp);
+  }
+  rebuildConnectors();
+  // Remove from map
+  const idx = routeMarkers.findIndex(m => m.id === id);
+  if (idx !== -1) {
+    routeMap.removeLayer(routeMarkers[idx].marker);
+    routeMarkers.splice(idx, 1);
+    // Renumber remaining markers
+    routeMarkers.forEach((m, i) => m.marker.setIcon(numberedIcon(i+1)));
+    drawRouteLine();
+  }
+}
+
+initDrag();
+// Also init if route tab is active on load (via hash)
+if (location.hash === '#route') setTimeout(() => initRouteMap(), 100);
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

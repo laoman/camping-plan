@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Admin Login — {{ trip.name }} — JimnyCamp{% endblock %}
+
+{% block body %}
+<div class="bg-forest flex items-center justify-center p-4" style="min-height:100vh;">
+  <div id="stars" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+
+  <div class="relative z-10 w-full" style="max-width:420px;">
+
+    <!-- Back link -->
+    <a href="/trip/{{ trip.join_code }}" class="flex items-center gap-2 text-green-200 hover:text-white text-sm font-medium mb-6 transition-colors">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+      Back to trip
+    </a>
+
+    <div class="glass-card p-8">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#FBBF24,#D97706);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="28" height="28" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+        </div>
+        <h1 class="font-black text-forest-900 text-2xl">Admin Access</h1>
+        <p class="text-sm text-gray-500 mt-1">
+          <span class="font-semibold text-gray-700">{{ trip.name }}</span>
+        </p>
+        <p class="text-xs text-gray-400 mt-1">Enter the admin password to continue</p>
+      </div>
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold
+          {% if cat == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-green-100 text-green-800 border border-green-200{% endif %}">
+          {{ msg }}
+        </div>
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="/admin/{{ trip.join_code }}/login" novalidate>
+        <div class="mb-6">
+          <label class="field-label" for="password">Admin Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="field-input"
+            placeholder="••••••••"
+            required
+            autofocus
+            autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-cta"
+          style="background:linear-gradient(135deg,#FBBF24,#D97706);color:#064E3B;">
+          Unlock Admin Panel →
+        </button>
+      </form>
+
+      <p class="text-xs text-center text-gray-400 mt-6">
+        Only the trip creator with the admin password can access this area.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const s = document.getElementById('stars');
+for(let i=0;i<50;i++){const d=document.createElement('div');d.className='star';const z=1.5+Math.random()*3;d.style.cssText=`width:${z}px;height:${z}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${Math.random()*4}s;animation-duration:${2+Math.random()*3}s;`;s.appendChild(d);}
+</script>
+{% endblock %}

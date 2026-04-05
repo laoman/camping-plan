@@ -1,0 +1,530 @@
+{% extends "base.html" %}
+{% block title %}My Plan — {{ trip.name }} — JimnyCamp{% endblock %}
+
+{% block body %}
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="/trip/{{ trip.join_code }}" class="text-forest-600 hover:text-forest-800 transition-colors">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+      </a>
+      <span class="font-black text-forest-900 text-lg tracking-tight hidden sm:inline">JimnyCamp</span>
+      <span class="text-gray-300 hidden sm:inline">·</span>
+      <span class="font-bold text-gray-700 truncate text-sm">My Plan</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="avatar-dot-sm flex-shrink-0" style="background:{{ me.color }};" title="{{ me.name }}">{{ me.name[0]|upper }}</div>
+      <span class="text-sm font-semibold text-gray-700 hidden sm:inline">{{ me.name }}</span>
+      <a href="/logout" class="text-xs text-gray-400 hover:text-gray-600 transition-colors ml-2">Leave</a>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+
+  <!-- ═══════════════════ DATE AVAILABILITY ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+      <h2 class="card-title">My Availability</h2>
+    </div>
+
+    {% if proposals %}
+    <!-- ── Admin proposed date windows ── -->
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Select the dates you can make it</p>
+    <div class="space-y-2 mb-6" id="proposal-list">
+      {% for p in proposals %}
+      {% set voted = p.id in my_vote_ids %}
+      <div class="proposal-card flex items-center gap-4 px-4 py-3 rounded-xl border-2 cursor-pointer select-none transition-all
+        {% if voted %}bg-green-50 border-green-400{% else %}bg-gray-50 border-gray-200 hover:border-gray-300{% endif %}"
+        id="pcard-{{ p.id }}"
+        onclick="toggleVote({{ p.id }}, this)">
+        <!-- Checkbox indicator -->
+        <div class="flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all
+          {% if voted %}bg-green-500 border-green-500{% else %}border-gray-300{% endif %}"
+          id="pcheck-{{ p.id }}">
+          {% if voted %}
+          <svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          {% endif %}
+        </div>
+        <!-- Date info -->
+        <div class="flex-1 min-w-0">
+          <span class="text-sm font-bold text-gray-800">{{ p.start | dmy }}{% if p.start != p.end %} → {{ p.end | dmy }}{% endif %}</span>
+          <span class="text-xs text-gray-400 ml-2">{{ p.days }} day{{ 's' if p.days != 1 }}</span>
+          {% if p.label %}<span class="ml-2 text-xs font-semibold text-forest-600">{{ p.label }}</span>{% endif %}
+        </div>
+        <!-- Voter avatars -->
+        <div class="flex items-center gap-1 flex-shrink-0" id="pvoters-{{ p.id }}">
+          {% for v in p.votes %}
+          <div class="avatar-dot-xs" style="background:{{ v.member_color }};" title="{{ v.member_name }}">{{ v.member_name[0]|upper }}</div>
+          {% endfor %}
+          <span class="text-xs font-semibold text-gray-400 ml-1" id="pvcount-{{ p.id }}">{{ p.votes|length }}/{{ trip.members|length }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <!-- ── No proposals: free-form range picker ── -->
+    <p class="text-xs text-gray-400 mb-4">No date windows proposed by admin yet. Add your own ranges below.</p>
+    {% endif %}
+
+    <!-- ── Custom range picker (always available as fallback / extra) ── -->
+    <details {% if not proposals %}open{% endif %} class="mt-1">
+      <summary class="text-xs font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 select-none mb-2">
+        {% if proposals %}+ Add your own custom range{% else %}+ Add a date range{% endif %}
+      </summary>
+      <div class="mt-3">
+        <!-- Added ranges list -->
+        <div id="range-list" class="space-y-2 mb-3"></div>
+        <!-- Picker -->
+        <div class="flex flex-wrap items-end gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
+          <div class="flex-1 min-w-[130px]">
+            <label class="field-label" for="avail-from">From</label>
+            <input type="date" id="avail-from" class="field-input">
+          </div>
+          <div class="flex-1 min-w-[130px]">
+            <label class="field-label" for="avail-to">To</label>
+            <input type="date" id="avail-to" class="field-input">
+          </div>
+          <button type="button" onclick="addRange()"
+            class="py-2.5 px-5 rounded-xl text-sm font-semibold text-white transition-colors flex-shrink-0"
+            style="background:#059669;">Add range</button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2 px-1" id="avail-count">{{ me.available_dates_list|length }} day{{ 's' if me.available_dates_list|length != 1 else '' }} in custom ranges</p>
+      </div>
+    </details>
+
+    <!-- Overlap statistics -->
+    {% if overlap_stats %}
+    <details class="mt-2" open>
+      <summary class="text-xs font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 select-none">Crew overlap statistics</summary>
+      <div class="space-y-2 mt-3">
+        {% for row in overlap_stats %}
+        <div class="rounded-xl border px-3 py-2.5
+          {% if row.count == trip.members|length %}bg-amber-50 border-amber-200
+          {% else %}bg-green-50 border-green-100{% endif %}">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-sm font-semibold text-gray-800">
+              {{ row.start | dmy }}{% if row.start != row.end %} → {{ row.end | dmy }}{% endif %}
+              <span class="text-xs font-normal text-gray-400 ml-1">{{ row.days }}d</span>
+            </span>
+            <span class="text-xs font-bold flex-shrink-0 ml-2
+              {% if row.count == trip.members|length %}text-amber-700{% else %}text-forest-700{% endif %}">
+              {{ row.count }}/{{ trip.members|length }}{% if row.count == trip.members|length %} ★{% endif %}
+            </span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-1.5 mb-2">
+            <div class="h-1.5 rounded-full"
+              style="width:{{ row.pct }}%;background:{% if row.count == trip.members|length %}#F59E0B{% else %}#059669{% endif %};"></div>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            {% for p in row.members %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+              style="background:{{ p.color }}18;color:{{ p.color }};border:1px solid {{ p.color }}35;">
+              {{ p.name }}
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+
+  <!-- ═══════════════════ PERSONAL NOTES ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+      <h2 class="card-title">Personal Notes</h2>
+      <span id="notes-status" class="ml-auto text-xs text-gray-300"></span>
+    </div>
+    <textarea id="personal-notes" class="field-input resize-none w-full" rows="4"
+      placeholder="Private notes for this trip…">{{ me.notes or '' }}</textarea>
+  </div>
+
+  <!-- ═══════════════════ FOOD ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M3 10a7 7 0 1114 0A7 7 0 013 10zm7-4a1 1 0 00-1 1v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7a1 1 0 00-1-1z"/></svg>
+      <h2 class="card-title">Food</h2>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-0 sm:divide-x sm:divide-gray-100">
+
+      <!-- ── Group food (left) ── -->
+      <div class="pb-4 sm:pb-0 sm:pr-5 mb-4 sm:mb-0 border-b sm:border-b-0 border-gray-100">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Shared by the crew</p>
+        <div id="group-food-list" class="space-y-2 mb-4">
+          {% for item in trip.food %}
+          {% set is_mine = item.assignee == me.name %}
+          <div class="flex items-center gap-2 px-3 py-2 rounded-xl border
+            {% if is_mine %}bg-green-50 border-green-200{% elif item.done %}bg-gray-50 border-gray-100{% else %}bg-white border-gray-100{% endif %}"
+            id="gf-{{ item.id }}">
+            <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+            {% if is_mine %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+              <button type="button" onclick="claimFood({{ item.id }}, false, this)"
+                class="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">✕</button>
+            {% elif item.assignee %}
+              <span class="badge-green">{{ item.assignee }}</span>
+            {% else %}
+              <button type="button" onclick="claimFood({{ item.id }}, true, this)"
+                class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors flex-shrink-0 whitespace-nowrap">
+                I'll bring
+              </button>
+            {% endif %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400 text-center py-3">No shared items yet.</p>
+          {% endfor %}
+        </div>
+        <!-- Add to group food -->
+        <form class="add-form" onsubmit="addGroupFood(event)">
+          <input type="text" class="add-input" name="text" placeholder="Add to group food…" required maxlength="300">
+          <button type="submit" class="add-btn">Add</button>
+        </form>
+      </div>
+
+      <!-- ── My personal food (right) ── -->
+      <div class="sm:pl-5">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">My personal list</p>
+        <div id="food-list" class="space-y-2 mb-4">
+          {% for item in personal_food %}
+          <div class="item-row" id="food-{{ item.id }}">
+            <button type="button" class="check-btn {% if item.done %}checked{% endif %}" onclick="togglePersonal('food',{{ item.id }},this)">
+              {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
+            </button>
+            <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+            <button type="button" class="del-btn" onclick="deletePersonal('food',{{ item.id }})">
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400 text-center py-3" id="food-empty">Nothing added yet.</p>
+          {% endfor %}
+        </div>
+        <form class="add-form" onsubmit="addPersonal(event,'food')">
+          <input type="text" class="add-input" name="text" placeholder="e.g. Trail mix, pasta…" required maxlength="300">
+          <button type="submit" class="add-btn">Add</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PERSONAL GEAR LIST ═══════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/></svg>
+      <h2 class="card-title">My Gear List</h2>
+      <span class="ml-auto text-xs text-gray-400" id="gear-count">{{ personal_gear|length }} items</span>
+    </div>
+    <div id="gear-list" class="space-y-2 mb-4">
+      {% for item in personal_gear %}
+      <div class="item-row" id="gear-{{ item.id }}">
+        <button type="button" class="check-btn {% if item.done %}checked{% endif %}" onclick="togglePersonal('gear',{{ item.id }},this)">
+          {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
+        </button>
+        <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+        <button type="button" class="del-btn" onclick="deletePersonal('gear',{{ item.id }})">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        </button>
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-400 text-center py-3" id="gear-empty">Nothing added yet.</p>
+      {% endfor %}
+    </div>
+    <form class="add-form" onsubmit="addPersonal(event,'gear')">
+      <input type="text" class="add-input" name="text" placeholder="e.g. Sleeping bag, headlamp…" required maxlength="300">
+      <button type="submit" class="add-btn">Add</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CODE = {{ trip.join_code | tojson }};
+let MY_DATES = new Set({{ me.available_dates_list | tojson }});
+
+// ── Proposal voting ──────────────────────────────
+const ME_COLOR = {{ me.color | tojson }};
+const ME_NAME  = {{ me.name  | tojson }};
+
+async function toggleVote(pid, cardEl) {
+  const checkEl  = document.getElementById(`pcheck-${pid}`);
+  const voted    = cardEl.classList.contains('border-green-400');
+  const attending = !voted;
+
+  // Optimistic UI
+  if (attending) {
+    cardEl.classList.replace('border-gray-200', 'border-green-400');
+    cardEl.classList.replace('bg-gray-50', 'bg-green-50');
+    checkEl.classList.replace('border-gray-300', 'border-green-500');
+    checkEl.classList.add('bg-green-500');
+    checkEl.innerHTML = `<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+  } else {
+    cardEl.classList.replace('border-green-400', 'border-gray-200');
+    cardEl.classList.replace('bg-green-50', 'bg-gray-50');
+    checkEl.classList.replace('border-green-500', 'border-gray-300');
+    checkEl.classList.remove('bg-green-500');
+    checkEl.innerHTML = '';
+  }
+
+  const res  = await fetch(`/api/${CODE}/proposal-vote`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ proposal_id: pid, attending }),
+  });
+  const data = await res.json();
+  if (!data.ok) return;
+
+  // Update voter count + avatars from server response
+  const votersEl = document.getElementById(`pvoters-${pid}`);
+  const vcountEl = document.getElementById(`pvcount-${pid}`);
+  const voters   = data.proposal.voters;
+  // Rebuild avatar dots
+  votersEl.innerHTML = voters.map(v =>
+    `<div class="avatar-dot-xs" style="background:${v.color};" title="${v.name}">${v.name[0].toUpperCase()}</div>`
+  ).join('') + `<span class="text-xs font-semibold text-gray-400 ml-1" id="pvcount-${pid}">${voters.length}/{{ trip.members|length }}</span>`;
+}
+
+// ── Range utilities ──────────────────────────────
+function localISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function expandRange(from, to) {
+  const dates = [];
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  while (d <= end) {
+    dates.push(localISO(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+function datesToRanges(sorted) {
+  if (!sorted.length) return [];
+  const ranges = [];
+  let s = sorted[0], e = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1] + 'T00:00:00');
+    const curr = new Date(sorted[i] + 'T00:00:00');
+    if ((curr - prev) / 86400000 === 1) {
+      e = sorted[i];
+    } else {
+      ranges.push([s, e]);
+      s = sorted[i]; e = sorted[i];
+    }
+  }
+  ranges.push([s, e]);
+  return ranges;
+}
+
+function fmtDate(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderRanges() {
+  const sorted = [...MY_DATES].sort();
+  const ranges = datesToRanges(sorted);
+  const list = document.getElementById('range-list');
+  list.innerHTML = '';
+  if (!ranges.length) {
+    list.innerHTML = '<p class="text-sm text-gray-400 text-center py-3 border border-dashed border-gray-200 rounded-xl">No date ranges added yet.</p>';
+  } else {
+    const hdr = document.createElement('p');
+    hdr.className = 'text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1';
+    hdr.textContent = `Your date range${ranges.length !== 1 ? 's' : ''} (${ranges.length})`;
+    list.appendChild(hdr);
+
+    ranges.forEach(([s, e]) => {
+      const days = expandRange(s, e).length;
+      const div = document.createElement('div');
+      div.className = 'flex items-center justify-between px-4 py-3 bg-green-50 border border-green-100 rounded-xl';
+      div.innerHTML = `
+        <div class="flex items-center gap-2 min-w-0">
+          <svg width="14" height="14" fill="#059669" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+          <span class="text-sm font-semibold text-gray-800">${fmtDate(s)}${s !== e ? ' &rarr; ' + fmtDate(e) : ''}</span>
+          <span class="text-xs text-gray-400">${days} day${days !== 1 ? 's' : ''}</span>
+        </div>
+        <button type="button" onclick="removeRange('${s}','${e}')"
+          class="ml-3 flex-shrink-0 text-gray-300 hover:text-red-500 transition-colors" title="Remove">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        </button>`;
+      list.appendChild(div);
+    });
+  }
+  const n = MY_DATES.size;
+  document.getElementById('avail-count').textContent = `${ranges.length} range${ranges.length !== 1 ? 's' : ''} · ${n} day${n !== 1 ? 's' : ''}`;
+}
+
+async function saveAndRender() {
+  renderRanges();
+  await fetch(`/api/${CODE}/availability`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dates: [...MY_DATES] }),
+  });
+}
+
+function addRange() {
+  const from = document.getElementById('avail-from').value;
+  const to = document.getElementById('avail-to').value;
+  if (!from || !to) { alert('Please select both a start and end date.'); return; }
+  if (to < from) { alert('End date must be on or after start date.'); return; }
+  expandRange(from, to).forEach(d => MY_DATES.add(d));
+  document.getElementById('avail-from').value = '';
+  document.getElementById('avail-to').value = '';
+  saveAndRender();
+}
+
+function removeRange(s, e) {
+  expandRange(s, e).forEach(d => MY_DATES.delete(d));
+  saveAndRender();
+}
+
+renderRanges();
+
+// ── Notes auto-save ──────────────────────────────
+let notesTimer;
+document.getElementById('personal-notes').addEventListener('input', function() {
+  clearTimeout(notesTimer);
+  document.getElementById('notes-status').textContent = 'Saving…';
+  notesTimer = setTimeout(async () => {
+    const res = await fetch(`/api/${CODE}/personal/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: this.value })
+    });
+    document.getElementById('notes-status').textContent = res.ok ? 'Saved ✓' : 'Error';
+    setTimeout(() => document.getElementById('notes-status').textContent = '', 2000);
+  }, 900);
+});
+
+// ── Personal lists ────────────────────────────────
+async function addPersonal(e, kind) {
+  e.preventDefault();
+  const form = e.target;
+  const text = form.text.value.trim();
+  if (!text) return;
+  const res = await fetch(`/api/${CODE}/personal/${kind}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+  if (!res.ok) return;
+  const item = await res.json();
+  document.getElementById(`${kind}-empty`)?.remove();
+  const list = document.getElementById(`${kind}-list`);
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.id = `${kind}-${item.id}`;
+  div.innerHTML = `
+    <button type="button" class="check-btn" onclick="togglePersonal('${kind}',${item.id},this)"></button>
+    <span class="flex-1 text-sm text-gray-700">${escHtml(item.text)}</span>
+    <button type="button" class="del-btn" onclick="deletePersonal('${kind}',${item.id})">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    </button>`;
+  list.appendChild(div);
+  form.text.value = '';
+  updatePersonalCount(kind);
+}
+
+async function togglePersonal(kind, id, btn) {
+  const res = await fetch(`/api/${CODE}/personal/${kind}/${id}/toggle`, { method:'POST' });
+  if (!res.ok) return;
+  const item = await res.json();
+  const row = document.getElementById(`${kind}-${id}`);
+  const span = row.querySelector('span.flex-1');
+  if (item.done) {
+    btn.classList.add('checked');
+    btn.innerHTML = `<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+    span.classList.add('line-through','text-gray-400'); span.classList.remove('text-gray-700');
+  } else {
+    btn.classList.remove('checked'); btn.innerHTML='';
+    span.classList.remove('line-through','text-gray-400'); span.classList.add('text-gray-700');
+  }
+}
+
+async function deletePersonal(kind, id) {
+  const res = await fetch(`/api/${CODE}/personal/${kind}/${id}`, { method:'DELETE' });
+  if (!res.ok) return;
+  document.getElementById(`${kind}-${id}`)?.remove();
+  updatePersonalCount(kind);
+}
+
+function updatePersonalCount(kind) {
+  const el = document.getElementById(`${kind}-count`);
+  if (!el) return;
+  const n = document.getElementById(`${kind}-list`).querySelectorAll('.item-row').length;
+  el.textContent = `${n} item${n!==1?'s':''}`;
+}
+
+// ── Group food claim / add ────────────────────────
+async function claimFood(id, claim, btn) {
+  const assignee = claim ? ME_NAME : '';
+  const res = await fetch(`/api/${CODE}/food/${id}/assign`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assignee })
+  });
+  if (!res.ok) return;
+  const item = await res.json();
+  const row = document.getElementById(`gf-${id}`);
+  if (!row) return;
+  // Rebuild the assignee/action area (last child(ren) after the text span)
+  const span = row.querySelector('span.flex-1');
+  // Remove everything after the text span
+  while (span.nextSibling) span.nextSibling.remove();
+  row.classList.remove('bg-green-50','border-green-200','bg-white','border-gray-100','bg-gray-50','border-gray-50');
+  if (item.assignee === ME_NAME) {
+    row.classList.add('bg-green-50','border-green-200');
+    row.insertAdjacentHTML('beforeend',
+      `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+       <button type="button" onclick="claimFood(${id},false,this)" class="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">✕</button>`);
+  } else if (item.assignee) {
+    row.classList.add('bg-white','border-gray-100');
+    row.insertAdjacentHTML('beforeend',
+      `<span class="badge-green">${escHtml(item.assignee)}</span>`);
+  } else {
+    row.classList.add('bg-white','border-gray-100');
+    row.insertAdjacentHTML('beforeend',
+      `<button type="button" onclick="claimFood(${id},true,this)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors flex-shrink-0 whitespace-nowrap">I'll bring</button>`);
+  }
+}
+
+async function addGroupFood(e) {
+  e.preventDefault();
+  const form = e.target;
+  const text = form.text.value.trim();
+  if (!text) return;
+  const res = await fetch(`/api/${CODE}/food`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, assignee: ME_NAME })
+  });
+  if (!res.ok) return;
+  const item = await res.json();
+  const list = document.getElementById('group-food-list');
+  list.querySelector('p')?.remove();
+  const div = document.createElement('div');
+  div.className = 'flex items-center gap-2 px-3 py-2 rounded-xl border bg-green-50 border-green-200';
+  div.id = `gf-${item.id}`;
+  div.innerHTML = `
+    <span class="flex-1 text-sm text-gray-700">${escHtml(item.text)}</span>
+    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+    <button type="button" onclick="claimFood(${item.id},false,this)" class="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">✕</button>`;
+  list.appendChild(div);
+  form.text.value = '';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

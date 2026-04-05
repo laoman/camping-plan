@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Create a Trip — Admin — JimnyCamp{% endblock %}
+
+{% block body %}
+<div class="bg-forest flex items-center justify-center p-4" style="min-height:100vh;">
+  <div id="stars" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+
+  <div class="relative z-10 w-full" style="max-width:480px;">
+
+    <!-- Back link -->
+    <a href="/" class="flex items-center gap-2 text-green-200 hover:text-white text-sm font-medium mb-6 transition-colors">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+      Back to home
+    </a>
+
+    <div class="glass-card p-8">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#FBBF24,#D97706);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="28" height="28" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        </div>
+        <h1 class="font-black text-forest-900 text-2xl">Create a Trip</h1>
+        <p class="text-xs text-gray-400 mt-1">Admin password required</p>
+      </div>
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold
+          {% if cat == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-green-100 text-green-800 border border-green-200{% endif %}">
+          {{ msg }}
+        </div>
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="/admin/create-trip" novalidate>
+        <div class="mb-4">
+          <label class="field-label" for="create-name">Your Name</label>
+          <input type="text" id="create-name" name="user_name" class="field-input"
+            placeholder="e.g. George" required maxlength="60" autocomplete="given-name"
+            value="{{ current_user or '' }}">
+        </div>
+        <div class="mb-4">
+          <label class="field-label" for="trip-name">Trip Name</label>
+          <input type="text" id="trip-name" name="trip_name" class="field-input"
+            placeholder="e.g. Rocky Mountain Summer 2026" required maxlength="120" autocomplete="off">
+        </div>
+        <div class="mb-4">
+          <label class="field-label" for="trip-desc">Description <span class="font-normal normal-case tracking-normal text-gray-400">(optional)</span></label>
+          <textarea id="trip-desc" name="trip_desc" class="field-input resize-none" rows="2"
+            placeholder="What's the vibe?" maxlength="500"></textarea>
+        </div>
+        <div class="mb-6">
+          <label class="field-label" for="password">Admin Password</label>
+          <input type="password" id="password" name="password" class="field-input"
+            placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-cta"
+          style="background:linear-gradient(135deg,#FBBF24,#D97706);color:#064E3B;">
+          Create Trip →
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const s = document.getElementById('stars');
+for(let i=0;i<55;i++){const d=document.createElement('div');d.className='star';const z=2+Math.random()*3.5;d.style.cssText=`width:${z}px;height:${z}px;left:${Math.random()*100}%;top:${Math.random()*85}%;animation-delay:${Math.random()*4}s;animation-duration:${2+Math.random()*3}s;`;s.appendChild(d);}
+</script>
+{% endblock %}

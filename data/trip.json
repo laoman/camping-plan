@@ -1,0 +1,23 @@
+{
+  "name": "Test Trip",
+  "createdAt": "2026-04-04T19:27:13.303214",
+  "participants": [
+    {
+      "name": "Greg",
+      "color": "#059669",
+      "joinedAt": "2026-04-04T19:27:13.303241",
+      "availableDates": [
+        "2026-04-01",
+        "2026-04-03",
+        "2026-04-02",
+        "2026-04-04"
+      ],
+      "personalFood": [],
+      "personalGear": [],
+      "notes": ""
+    }
+  ],
+  "sharedFood": [],
+  "sharedEquipment": [],
+  "sharedTasks": []
+}
