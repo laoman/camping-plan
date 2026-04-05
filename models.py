@@ -125,10 +125,11 @@ class EquipmentItem(db.Model):
     done       = db.Column(db.Boolean, default=False)
     assignee   = db.Column(db.String(60), default="")
     added_by   = db.Column(db.String(60), default="")
+    category   = db.Column(db.String(100), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
-        return {"id": self.id, "text": self.text, "done": self.done, "assignee": self.assignee, "added_by": self.added_by}
+        return {"id": self.id, "text": self.text, "done": self.done, "assignee": self.assignee, "added_by": self.added_by, "category": self.category or ""}
 
 
 # ─────────────────────────────────────────────
@@ -142,10 +143,11 @@ class FoodItem(db.Model):
     done       = db.Column(db.Boolean, default=False)
     assignee   = db.Column(db.String(60), default="")
     added_by   = db.Column(db.String(60), default="")
+    category   = db.Column(db.String(100), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
-        return {"id": self.id, "text": self.text, "done": self.done, "assignee": self.assignee, "added_by": self.added_by}
+        return {"id": self.id, "text": self.text, "done": self.done, "assignee": self.assignee, "added_by": self.added_by, "category": self.category or ""}
 
 
 # ─────────────────────────────────────────────

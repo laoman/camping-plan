@@ -313,40 +313,47 @@
         <h2 class="card-title">Group Equipment</h2>
         <span class="ml-auto text-xs text-gray-400" id="equipment-count">{{ trip.equipment|length }} items</span>
       </div>
-      <div id="equipment-list" class="space-y-2 mb-4">
-        {% for item in trip.equipment %}
-        <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border
-          {% if item.assignee == me.name %}bg-green-50 border-green-200
-          {% elif item.assignee %}bg-gray-50 border-gray-100
-          {% else %}bg-white border-gray-100{% endif %}"
-          id="equip-{{ item.id }}">
-          <button type="button" class="check-btn {% if item.done %}checked{% endif %} flex-shrink-0" onclick="toggleShared('equipment',{{ item.id }},this)">
-            {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
-          </button>
-          <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
-          <div class="flex items-center gap-1 flex-shrink-0" id="equip-cell-{{ item.id }}">
-            {% if item.assignee == me.name %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
-              <button type="button" onclick="assignItem('equipment',{{ item.id }},'')" class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>
-            {% elif item.assignee %}
-              <select onchange="assignItem('equipment',{{ item.id }},this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer">
-                <option value="{{ item.assignee }}" selected>{{ item.assignee }}</option>
-                <option value="">Unclaim</option>
-                {% for m in trip.members %}
-                  {% if m.name != item.assignee %}<option value="{{ m.name }}">{{ m.name }}</option>{% endif %}
-                {% endfor %}
-              </select>
-            {% else %}
-              <button type="button" onclick="assignItem('equipment',{{ item.id }},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
-              <select onchange="assignItem('equipment',{{ item.id }},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
-                <option value="">Assign…</option>
-                {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
-              </select>
-            {% endif %}
+      <div id="equipment-list" class="mb-4">
+        {% for cat, items in trip.equipment|sort(attribute='category')|groupby('category') %}
+        <div class="mb-3" id="equip-cat-{{ cat|replace(' ','-')|replace('&','and')|replace('/','-') }}" data-cat="{{ cat }}">
+          {% if cat %}<p class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 pb-1{% if not loop.first %} pt-2{% endif %}">{{ cat }}</p>{% endif %}
+          <div class="space-y-2">
+            {% for item in items %}
+            <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border
+              {% if item.assignee == me.name %}bg-green-50 border-green-200
+              {% elif item.assignee %}bg-gray-50 border-gray-100
+              {% else %}bg-white border-gray-100{% endif %}"
+              id="equip-{{ item.id }}">
+              <button type="button" class="check-btn {% if item.done %}checked{% endif %} flex-shrink-0" onclick="toggleShared('equipment',{{ item.id }},this)">
+                {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
+              </button>
+              <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+              <div class="flex items-center gap-1 flex-shrink-0" id="equip-cell-{{ item.id }}">
+                {% if item.assignee == me.name %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+                  <button type="button" onclick="assignItem('equipment',{{ item.id }},'')" class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>
+                {% elif item.assignee %}
+                  <select onchange="assignItem('equipment',{{ item.id }},this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer">
+                    <option value="{{ item.assignee }}" selected>{{ item.assignee }}</option>
+                    <option value="">Unclaim</option>
+                    {% for m in trip.members %}
+                      {% if m.name != item.assignee %}<option value="{{ m.name }}">{{ m.name }}</option>{% endif %}
+                    {% endfor %}
+                  </select>
+                {% else %}
+                  <button type="button" onclick="assignItem('equipment',{{ item.id }},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
+                  <select onchange="assignItem('equipment',{{ item.id }},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
+                    <option value="">Assign…</option>
+                    {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
+                  </select>
+                {% endif %}
+              </div>
+              <button type="button" class="del-btn flex-shrink-0" onclick="deleteShared('equipment',{{ item.id }})">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </button>
+            </div>
+            {% endfor %}
           </div>
-          <button type="button" class="del-btn flex-shrink-0" onclick="deleteShared('equipment',{{ item.id }})">
-            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-          </button>
         </div>
         {% else %}
         <p class="text-sm text-gray-400 text-center py-4" id="equipment-empty">No equipment yet.</p>
@@ -354,6 +361,13 @@
       </div>
       <form class="add-form" onsubmit="addShared(event,'equipment')">
         <input type="text" class="add-input" name="text" placeholder="e.g. Tent, sleeping bag…" required maxlength="300">
+        <select name="category" class="add-input" style="max-width:165px;">
+          <option value="">Category…</option>
+          <option value="Διαμονή &amp; Ύπνος">Διαμονή &amp; Ύπνος</option>
+          <option value="Έπιπλα &amp; Φωτισμός">Έπιπλα &amp; Φωτισμός</option>
+          <option value="Κουζίνα &amp; Εργαλεία">Κουζίνα &amp; Εργαλεία</option>
+          <option value="Τεχνολογία">Τεχνολογία</option>
+        </select>
         <select name="assignee" class="add-input" style="max-width:130px;">
           <option value="">Anyone</option>
           {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
@@ -403,40 +417,47 @@
         <h2 class="card-title">Group Food</h2>
         <span class="ml-auto text-xs text-gray-400" id="food-count">{{ trip.food|length }} items</span>
       </div>
-      <div id="food-list" class="space-y-2 mb-4">
-        {% for item in trip.food %}
-        <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border
-          {% if item.assignee == me.name %}bg-green-50 border-green-200
-          {% elif item.assignee %}bg-gray-50 border-gray-100
-          {% else %}bg-white border-gray-100{% endif %}"
-          id="food-{{ item.id }}">
-          <button type="button" class="check-btn {% if item.done %}checked{% endif %} flex-shrink-0" onclick="toggleFood({{ item.id }},this)">
-            {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
-          </button>
-          <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
-          <div class="flex items-center gap-1 flex-shrink-0" id="food-cell-{{ item.id }}">
-            {% if item.assignee == me.name %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
-              <button type="button" onclick="assignItem('food',{{ item.id }},'')" class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>
-            {% elif item.assignee %}
-              <select onchange="assignItem('food',{{ item.id }},this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer">
-                <option value="{{ item.assignee }}" selected>{{ item.assignee }}</option>
-                <option value="">Unclaim</option>
-                {% for m in trip.members %}
-                  {% if m.name != item.assignee %}<option value="{{ m.name }}">{{ m.name }}</option>{% endif %}
-                {% endfor %}
-              </select>
-            {% else %}
-              <button type="button" onclick="assignItem('food',{{ item.id }},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
-              <select onchange="assignItem('food',{{ item.id }},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
-                <option value="">Assign…</option>
-                {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
-              </select>
-            {% endif %}
+      <div id="food-list" class="mb-4">
+        {% for cat, items in trip.food|sort(attribute='category')|groupby('category') %}
+        <div class="mb-3" id="food-cat-{{ cat|replace(' ','-')|replace('&','and')|replace('/','-') }}" data-cat="{{ cat }}">
+          {% if cat %}<p class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1 pb-1{% if not loop.first %} pt-2{% endif %}">{{ cat }}</p>{% endif %}
+          <div class="space-y-2">
+            {% for item in items %}
+            <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border
+              {% if item.assignee == me.name %}bg-green-50 border-green-200
+              {% elif item.assignee %}bg-gray-50 border-gray-100
+              {% else %}bg-white border-gray-100{% endif %}"
+              id="food-{{ item.id }}">
+              <button type="button" class="check-btn {% if item.done %}checked{% endif %} flex-shrink-0" onclick="toggleFood({{ item.id }},this)">
+                {% if item.done %}<svg width="12" height="12" fill="white" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>{% endif %}
+              </button>
+              <span class="flex-1 text-sm {% if item.done %}line-through text-gray-400{% else %}text-gray-700{% endif %}">{{ item.text }}</span>
+              <div class="flex items-center gap-1 flex-shrink-0" id="food-cell-{{ item.id }}">
+                {% if item.assignee == me.name %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">You ✓</span>
+                  <button type="button" onclick="assignItem('food',{{ item.id }},'')" class="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>
+                {% elif item.assignee %}
+                  <select onchange="assignItem('food',{{ item.id }},this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer">
+                    <option value="{{ item.assignee }}" selected>{{ item.assignee }}</option>
+                    <option value="">Unclaim</option>
+                    {% for m in trip.members %}
+                      {% if m.name != item.assignee %}<option value="{{ m.name }}">{{ m.name }}</option>{% endif %}
+                    {% endfor %}
+                  </select>
+                {% else %}
+                  <button type="button" onclick="assignItem('food',{{ item.id }},ME)" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-forest-100 text-forest-700 hover:bg-forest-200 transition-colors whitespace-nowrap">I'll bring</button>
+                  <select onchange="assignItem('food',{{ item.id }},this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-400 cursor-pointer">
+                    <option value="">Assign…</option>
+                    {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
+                  </select>
+                {% endif %}
+              </div>
+              <button type="button" class="del-btn flex-shrink-0" onclick="deleteFood({{ item.id }})">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </button>
+            </div>
+            {% endfor %}
           </div>
-          <button type="button" class="del-btn flex-shrink-0" onclick="deleteFood({{ item.id }})">
-            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-          </button>
         </div>
         {% else %}
         <p class="text-sm text-gray-400 text-center py-4" id="food-empty">No food items yet.</p>
@@ -444,6 +465,13 @@
       </div>
       <form class="add-form" onsubmit="addFood(event)">
         <input type="text" class="add-input" name="text" placeholder="e.g. Halloumi, olive oil…" required maxlength="300">
+        <select name="category" class="add-input" style="max-width:165px;">
+          <option value="">Category…</option>
+          <option value="Προμήθειες">Προμήθειες</option>
+          <option value="Φρέσκα &amp; Σνακ">Φρέσκα &amp; Σνακ</option>
+          <option value="Ποτά">Ποτά</option>
+          <option value="Άλλα">Άλλα</option>
+        </select>
         <select name="assignee" class="add-input" style="max-width:130px;">
           <option value="">Anyone</option>
           {% for m in trip.members %}<option value="{{ m.name }}">{{ m.name }}</option>{% endfor %}
@@ -865,11 +893,41 @@ async function assignItem(type, id, assignee) {
   refreshSummary(type);
 }
 
+// ── Category helpers ──────────────────────────────
+function catSlug(cat) {
+  return (cat || '').replace(/ /g, '-').replace(/&/g, 'and').replace(/\//g, '-');
+}
+
+function getOrCreateCatContainer(prefix, listEl, category) {
+  const slug = catSlug(category);
+  const groupId = `${prefix}-cat-${slug}`;
+  let groupEl = document.getElementById(groupId);
+  if (!groupEl) {
+    groupEl = document.createElement('div');
+    groupEl.id = groupId;
+    groupEl.className = 'mb-3';
+    groupEl.dataset.cat = category;
+    if (category) {
+      const label = document.createElement('p');
+      label.className = 'text-xs font-bold text-gray-400 uppercase tracking-wider px-1 pb-1 pt-2';
+      label.textContent = category;
+      groupEl.appendChild(label);
+    }
+    const inner = document.createElement('div');
+    inner.className = 'space-y-2';
+    groupEl.appendChild(inner);
+    listEl.appendChild(groupEl);
+    return inner;
+  }
+  return groupEl.querySelector('.space-y-2') || groupEl;
+}
+
 async function addShared(e, type) {
   e.preventDefault();
   const form = e.target;
   const body = { text: form.text.value.trim() };
   if ((type === 'todos' || type === 'equipment') && form.assignee) body.assignee = form.assignee.value;
+  if (type === 'equipment' && form.category) body.category = form.category.value;
   if (!body.text) return;
   const res = await fetch(`/api/${CODE}/${type}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if (!res.ok) return;
@@ -894,6 +952,7 @@ async function addShared(e, type) {
         <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
       </button>`;
     if (item.assignee) renderAssigneeCell('equipment', item.id, item.assignee);
+    getOrCreateCatContainer('equip', listEl, item.category || '').appendChild(div);
   } else {
     div.className = 'item-row';
     div.id = `todo-${item.id}`;
@@ -904,8 +963,8 @@ async function addShared(e, type) {
       <button type="button" class="del-btn" onclick="deleteShared('${type}',${item.id})">
         <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
       </button>`;
+    listEl.appendChild(div);
   }
-  listEl.appendChild(div);
   form.text.value = '';
   updateCount(type === 'todos' ? 'todos' : 'equipment');
   if (type === 'equipment') refreshSummary('equipment');
@@ -943,7 +1002,8 @@ function updateCount(key) {
   if (!el) return;
   const list = document.getElementById(`${key}-list`);
   if (!list) return;
-  const n = list.children.length;
+  const prefix = key === 'equipment' ? 'equip' : key;
+  const n = [...list.querySelectorAll(`[id^="${prefix}-"]`)].filter(r => !isNaN(r.id.replace(prefix + '-', ''))).length;
   el.textContent = `${n} item${n!==1?'s':''}`;
 }
 
@@ -989,7 +1049,11 @@ function refreshSummary(type) {
 async function addFood(e) {
   e.preventDefault();
   const form = e.target;
-  const body = { text: form.text.value.trim(), assignee: form.assignee ? form.assignee.value : '' };
+  const body = {
+    text: form.text.value.trim(),
+    assignee: form.assignee ? form.assignee.value : '',
+    category: form.category ? form.category.value : ''
+  };
   if (!body.text) return;
   const res = await fetch(`/api/${CODE}/food`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if (!res.ok) return;
@@ -1010,7 +1074,7 @@ async function addFood(e) {
     <button type="button" class="del-btn flex-shrink-0" onclick="deleteFood(${item.id})">
       <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
     </button>`;
-  document.getElementById('food-list').appendChild(div);
+  getOrCreateCatContainer('food', document.getElementById('food-list'), item.category || '').appendChild(div);
   if (item.assignee) renderAssigneeCell('food', item.id, item.assignee);
   form.text.value = '';
   updateCount('food');
