@@ -20,10 +20,10 @@ from flask import (
 
 from sqlalchemy import text as _sa_text
 from models import (
-    db, COLORS,
+    db, COLORS, TRIP_ROLES,
     Trip, TripMember, TodoItem, EquipmentItem, FoodItem,
     PersonalItem, Idea, Poll, PollOption, PollVote, RouteStop,
-    TripDateProposal, ProposalVote, IdeaVote, TodoVote,
+    TripDateProposal, ProposalVote, IdeaVote, TodoVote, RoleVote,
 )
 
 # ──────────────────────────────────────────────
@@ -328,9 +328,17 @@ def create_app() -> Flask:
         if name:
             memberships = TripMember.query.filter_by(name=name).all()
             for m in memberships:
-                my_trips.append({"trip": m.trip, "is_admin": m.is_admin})
+                trip_role_votes = RoleVote.query.filter_by(trip_id=m.trip_id).all()
+                tally = {r: {} for r in TRIP_ROLES}
+                for rv in trip_role_votes:
+                    tally[rv.role][rv.nominee_name] = tally[rv.role].get(rv.nominee_name, 0) + 1
+                role_winners = {}
+                for role in TRIP_ROLES:
+                    votes = tally[role]
+                    role_winners[role] = max(votes, key=votes.get) if votes else None
+                my_trips.append({"trip": m.trip, "is_admin": m.is_admin, "role_winners": role_winners})
         all_trips = Trip.query.order_by(Trip.created_at.desc()).all()
-        return render_template("index.html", trips=my_trips, all_trips=all_trips, current_user=name)
+        return render_template("index.html", trips=my_trips, all_trips=all_trips, current_user=name, trip_roles=TRIP_ROLES)
 
     @app.route("/admin", methods=["GET", "POST"])
     def admin_dashboard():
@@ -486,6 +494,15 @@ def create_app() -> Flask:
             TodoVote.todo_id.in_(todo_ids),
         ).all()} if todo_ids else set()
 
+        # Role votes
+        all_role_votes = RoleVote.query.filter_by(trip_id=trip.id).all()
+        # role_tallies: {role: {nominee: count}}
+        role_tallies = {r: {} for r in TRIP_ROLES}
+        for rv in all_role_votes:
+            role_tallies[rv.role][rv.nominee_name] = role_tallies[rv.role].get(rv.nominee_name, 0) + 1
+        # my_role_votes: {role: nominee_name}
+        my_role_votes = {rv.role: rv.nominee_name for rv in all_role_votes if rv.voter_name == me.name}
+
         return render_template(
             "trip.html",
             trip=trip,
@@ -500,6 +517,9 @@ def create_app() -> Flask:
             my_idea_vote_ids=my_idea_vote_ids,
             my_todo_vote_ids=my_todo_vote_ids,
             voted_options=voted_options,
+            trip_roles=TRIP_ROLES,
+            role_tallies=role_tallies,
+            my_role_votes=my_role_votes,
         )
 
     @app.route("/trip/<code>/my-plan")
@@ -830,6 +850,41 @@ def create_app() -> Flask:
         db.session.delete(idea)
         db.session.commit()
         return jsonify({"ok": True})
+
+    # ──────────────────────────────────────────
+    # API — Role votes
+    # ──────────────────────────────────────────
+
+    @app.route("/api/<code>/roles/vote", methods=["POST"])
+    @_json_require_member
+    def api_role_vote(code):
+        trip = Trip.query.filter_by(join_code=code).first_or_404()
+        me = _member(code)
+        data = request.get_json(silent=True) or {}
+        role = str(data.get("role", "")).strip()
+        nominee = str(data.get("nominee", "")).strip()[:60]
+        if role not in TRIP_ROLES:
+            return jsonify({"ok": False, "error": "Invalid role"}), 400
+        if nominee and not TripMember.query.filter_by(trip_id=trip.id, name=nominee).first():
+            return jsonify({"ok": False, "error": "Unknown nominee"}), 400
+        existing = RoleVote.query.filter_by(trip_id=trip.id, role=role, voter_name=me.name).first()
+        if not nominee:
+            # Clear vote
+            if existing:
+                db.session.delete(existing)
+        elif existing:
+            existing.nominee_name = nominee
+        else:
+            db.session.add(RoleVote(trip_id=trip.id, role=role,
+                                     voter_name=me.name, nominee_name=nominee))
+        db.session.commit()
+        # Return updated tallies for this role
+        votes = RoleVote.query.filter_by(trip_id=trip.id, role=role).all()
+        tally = {}
+        for rv in votes:
+            tally[rv.nominee_name] = tally.get(rv.nominee_name, 0) + 1
+        my_vote = nominee if nominee else ""
+        return jsonify({"ok": True, "role": role, "tally": tally, "my_vote": my_vote})
 
     @app.route("/api/<code>/todos/<int:todo_id>/vote", methods=["POST"])
     @_json_require_member

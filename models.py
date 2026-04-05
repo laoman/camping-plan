@@ -331,3 +331,18 @@ class TodoVote(db.Model):
     todo_id   = db.Column(db.Integer, db.ForeignKey("todo_item.id"), nullable=False)
     member_id = db.Column(db.Integer, db.ForeignKey("trip_member.id"), nullable=False)
     __table_args__ = (db.UniqueConstraint("todo_id", "member_id"),)
+
+
+# ─────────────────────────────────────────────
+# Member role votes (Leader, Chef, Guide, etc.)
+# ─────────────────────────────────────────────
+TRIP_ROLES = ["Leader", "Chef", "Guide", "Entertainment", "Apothikarios"]
+
+class RoleVote(db.Model):
+    __tablename__ = "role_vote"
+    id           = db.Column(db.Integer, primary_key=True)
+    trip_id      = db.Column(db.Integer, db.ForeignKey("trip.id"), nullable=False)
+    role         = db.Column(db.String(40), nullable=False)
+    voter_name   = db.Column(db.String(60), nullable=False)
+    nominee_name = db.Column(db.String(60), nullable=False)
+    __table_args__ = (db.UniqueConstraint("trip_id", "role", "voter_name", name="uq_role_voter"),)

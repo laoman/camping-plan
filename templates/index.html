@@ -123,6 +123,20 @@
               <div class="text-xs text-gray-500">{{ t.trip.members|length }} member{{ 's' if t.trip.members|length != 1 else '' }}
                 {% if t.is_admin %}<span class="ml-1 text-amber-600 font-semibold">Admin</span>{% endif %}
               </div>
+              {% if t.role_winners %}
+              {%   set role_icons = {"Leader":"&#127919;","Chef":"&#127859;","Guide":"&#129517;","Entertainment":"&#127925;","Apothikarios":"&#128138;"} %}
+              <div class="flex flex-wrap gap-1 mt-1.5">
+                {% for role in trip_roles %}
+                {%   set winner = t.role_winners[role] %}
+                <span class="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full
+                  {{ 'bg-green-50 text-forest-700 font-medium' if winner else 'bg-gray-50 text-gray-400' }}"
+                  title="{{ role }}: {{ winner or 'No votes yet' }}">
+                  <span>{{ role_icons[role] | safe }}</span>
+                  <span>{{ winner.split(' ')[0] if winner else '—' }}</span>
+                </span>
+                {% endfor %}
+              </div>
+              {% endif %}
             </div>
             <div class="flex items-center">
               {% for m in t.trip.members[:4] %}

@@ -53,7 +53,7 @@
 <!-- Section tab nav -->
 <div class="bg-white border-b border-gray-100 sticky top-14 z-40">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 flex gap-1 overflow-x-auto py-1" id="tab-nav">
-    {% set tabs = [("overview","Overview"),("todos","To-Dos"),("equipment","Equipment"),("food","Food"),("ideas","Ideas"),("polls","Polls"),("route","Route")] %}
+    {% set tabs = [("overview","Overview"),("todos","To-Dos"),("equipment","Equipment"),("food","Food"),("ideas","Ideas"),("polls","Polls"),("route","Route"),("roles","Roles")] %}
     {% for tid, tlabel in tabs %}
     <button onclick="showTab('{{ tid }}')" id="tab-{{ tid }}"
       class="tab-btn {% if loop.first %}tab-active{% endif %}">{{ tlabel }}</button>
@@ -73,29 +73,43 @@
           <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
           <h2 class="card-title">Crew ({{ trip.members|length }})</h2>
         </div>
+        {# Build winner-per-role lookup once #}
+        {% set role_icons = {"Leader":"&#127919;","Chef":"&#127859;","Guide":"&#129517;","Entertainment":"&#127925;","Apothikarios":"&#128138;"} %}
+        {% set member_won_roles = {} %}
+        {% for role in trip_roles %}
+          {% set votes = role_tallies[role] %}
+          {% if votes %}
+            {% set winner = (votes.items() | list | sort(attribute=1, reverse=True) | first)[0] %}
+            {% if member_won_roles.update({winner: (member_won_roles.get(winner, []) + [role])}) %}{% endif %}
+          {% endif %}
+        {% endfor %}
+
         <div class="space-y-2">
           {% for m in trip.members %}
           <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
             <div class="avatar-dot flex-shrink-0" style="background:{{ m.color }};">{{ m.name[0]|upper }}</div>
             <div class="flex-1 min-w-0">
-              <div class="font-semibold text-gray-800 text-sm truncate">
+              <div class="font-semibold text-gray-800 text-sm truncate flex items-center gap-1.5 flex-wrap">
                 {{ m.name }}
                 {% if m.name == me.name %}<span class="text-xs text-forest-600 font-normal">(you)</span>{% endif %}
-                {% if m.is_admin %}<span class="text-xs text-amber-600 font-semibold ml-1">Admin</span>{% endif %}
+                {% if m.is_admin %}<span class="text-xs text-amber-600 font-semibold">Admin</span>{% endif %}
+                {% for role in member_won_roles.get(m.name, []) %}
+                <span class="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full bg-forest-50 text-forest-700 font-medium border border-forest-100" title="{{ role }}">
+                  {{ role_icons[role] | safe }} {{ role }}
+                </span>
+                {% endfor %}
               </div>
               <div class="text-xs text-gray-400">{{ m.available_dates_list|length }} date{{ 's' if m.available_dates_list|length != 1 else '' }}</div>
             </div>
           </div>
           {% endfor %}
         </div>
+        <!-- Vote CTA -->
+        <a href="#roles" onclick="showTab('roles')"
+           class="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors text-sm font-semibold text-amber-700 hover:text-amber-800">
+          &#127859; Vote for your next Chef!
+        </a>
         <!-- Invite code -->
-        <div class="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl">
-          <p class="text-xs text-amber-700 font-semibold mb-1">Share code to invite friends</p>
-          <div class="flex items-center gap-2">
-            <code class="font-mono font-bold text-amber-800 text-sm tracking-widest flex-1">{{ trip.join_code }}</code>
-            <button onclick="copyCode()" class="text-xs text-amber-600 hover:text-amber-800 font-semibold cursor-pointer">Copy</button>
-          </div>
-        </div>
       </div>
 
       <!-- Best dates -->
@@ -709,6 +723,77 @@
     </div>
   </div>
 
+  <!-- ═════════════════════ ROLES ═════════════════════ -->
+  <div id="section-roles" class="tab-section hidden">
+
+    {% set role_icons = {
+      "Leader":        "&#127919;",
+      "Chef":          "&#127859;",
+      "Guide":         "&#129517;",
+      "Entertainment": "&#127925;",
+      "Apothikarios":  "&#128138;"
+    } %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {% for role in trip_roles %}
+      {%   set tally = role_tallies[role] %}
+      {%   set winner = (tally.items() | list | sort(attribute=1, reverse=True) | first) if tally else None %}
+      {%   set my_vote = my_role_votes.get(role, '') %}
+      {%   set total_votes = tally.values() | sum %}
+
+      <div class="card" id="role-card-{{ role }}">
+        <div class="card-header">
+          <span class="text-2xl mr-1">{{ role_icons[role] | safe }}</span>
+          <h2 class="card-title">{{ role }}</h2>
+          {% if winner %}
+          <span class="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-forest-100 text-forest-700">
+            {{ winner[0] }} • {{ winner[1] }} vote{{ 's' if winner[1] != 1 }}
+          </span>
+          {% endif %}
+        </div>
+
+        <!-- Vote bars -->
+        <div class="mb-4 space-y-2" id="role-bars-{{ role }}">
+          {% for m in trip.members %}
+          {%   set votes_for = tally.get(m.name, 0) %}
+          {%   set pct = ((votes_for / total_votes * 100) | round(0) | int) if total_votes > 0 else 0 %}
+          <div class="flex items-center gap-2">
+            <div class="avatar-dot-sm flex-shrink-0" style="background:{{ m.color }}">{{ m.name[0]|upper }}</div>
+            <span class="text-xs text-gray-600 w-20 truncate">{{ m.name }}</span>
+            <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-2 rounded-full transition-all duration-300"
+                   id="role-bar-{{ role }}-{{ m.name|replace(' ','-') }}"
+                   style="width:{{ pct }}%; background:{{ m.color }};"></div>
+            </div>
+            <span class="text-xs text-gray-400 w-4 text-right" id="role-count-{{ role }}-{{ m.name|replace(' ','-') }}">{{ votes_for or '' }}</span>
+          </div>
+          {% endfor %}
+          {% if not trip.members %}<p class="text-sm text-gray-400 text-center py-2">No members yet.</p>{% endif %}
+        </div>
+
+        <!-- Vote selector -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500 flex-shrink-0">Your vote:</span>
+          <select id="role-select-{{ role }}"
+                  onchange="castRoleVote('{{ role }}', this.value)"
+                  class="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-forest-400">
+            <option value="">-- abstain --</option>
+            {% for m in trip.members %}
+            <option value="{{ m.name }}" {% if my_vote == m.name %}selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% if my_vote %}
+        <p class="text-xs text-green-600 font-medium mt-2" id="role-myvote-label-{{ role }}">✔ You voted for {{ my_vote }}</p>
+        {% else %}
+        <p class="text-xs text-gray-400 mt-2" id="role-myvote-label-{{ role }}">No vote cast yet</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
@@ -1104,6 +1189,60 @@ async function deleteFood(id) {
   document.getElementById(`food-${id}`)?.remove();
   updateCount('food');
   refreshSummary('food');
+}
+
+// ── Roles ─────────────────────────────────────────
+async function castRoleVote(role, nominee) {
+  const res = await fetch(`/api/${CODE}/roles/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role, nominee }),
+  });
+  const data = await res.json();
+  if (!data.ok) return;
+
+  const tally = data.tally;   // {name: count, ...}
+  const memberEls = document.querySelectorAll(`#role-bars-${role} .flex.items-center`);
+  // Compute total
+  const total = Object.values(tally).reduce((s, n) => s + n, 0);
+  memberEls.forEach(row => {
+    const nameEl = row.querySelector('span.text-xs.text-gray-600');
+    if (!nameEl) return;
+    const name = nameEl.textContent.trim();
+    const count = tally[name] || 0;
+    const pct   = total > 0 ? Math.round(count / total * 100) : 0;
+    const slug  = name.replace(/ /g, '-');
+    const barEl   = document.getElementById(`role-bar-${role}-${slug}`);
+    const countEl = document.getElementById(`role-count-${role}-${slug}`);
+    if (barEl)   barEl.style.width = pct + '%';
+    if (countEl) countEl.textContent = count || '';
+  });
+  // Update winner badge
+  const cardEl = document.getElementById(`role-card-${role}`);
+  const headerEl = cardEl?.querySelector('.card-header');
+  let badgeEl = headerEl?.querySelector('.ml-auto');
+  if (total > 0) {
+    const winner = Object.entries(tally).sort((a,b) => b[1]-a[1])[0];
+    if (!badgeEl) {
+      badgeEl = document.createElement('span');
+      badgeEl.className = 'ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-forest-100 text-forest-700';
+      headerEl.appendChild(badgeEl);
+    }
+    badgeEl.textContent = `${winner[0]} \u2022 ${winner[1]} vote${winner[1]!==1?'s':''}`;
+  } else if (badgeEl) {
+    badgeEl.remove();
+  }
+  // Update my vote label
+  const labelEl = document.getElementById(`role-myvote-label-${role}`);
+  if (labelEl) {
+    if (nominee) {
+      labelEl.className = 'text-xs text-green-600 font-medium mt-2';
+      labelEl.textContent = `\u2714 You voted for ${nominee}`;
+    } else {
+      labelEl.className = 'text-xs text-gray-400 mt-2';
+      labelEl.textContent = 'No vote cast yet';
+    }
+  }
 }
 
 // ── Ideas ─────────────────────────────────────────
