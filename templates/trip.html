@@ -99,7 +99,7 @@
                 </span>
                 {% endfor %}
               </div>
-              <div class="text-xs text-gray-400">{{ m.available_dates_list|length }} date{{ 's' if m.available_dates_list|length != 1 else '' }}</div>
+              <div class="text-xs text-gray-400" {% if m.name == me.name %}id="my-periods-count"{% endif %}>{{ m.voted_periods_count }} period{{ 's' if m.voted_periods_count != 1 else '' }}</div>
             </div>
           </div>
           {% endfor %}
@@ -886,6 +886,13 @@ async function toggleVote(pid, cardEl) {
       rowEl.classList.replace('border-green-100', 'border-gray-100');
       if (dotEl) { dotEl.classList.replace('bg-green-400', 'bg-gray-300'); }
     }
+  }
+
+  // Live-update the period count in the Crew list for the current user
+  const periodsEl = document.getElementById('my-periods-count');
+  if (periodsEl && chipsEl) {
+    const cnt = chipsEl.querySelectorAll('[data-pid]').length;
+    periodsEl.textContent = cnt + (cnt === 1 ? ' period' : ' periods');
   }
 }
 

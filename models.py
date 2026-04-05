@@ -41,6 +41,10 @@ class TripMember(db.Model):
     def available_dates_list(self):
         return [d for d in self.available_dates.split("\n") if d]
 
+    @property
+    def voted_periods_count(self):
+        return ProposalVote.query.filter_by(member_id=self.id).count()
+
     def set_dates(self, dates: list[str]):
         self.available_dates = "\n".join(sorted(set(d[:10] for d in dates if d)))
 

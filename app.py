@@ -923,6 +923,12 @@ def create_app() -> Flask:
         p = TripDateProposal(trip_id=trip.id, start=start, end=end,
                              label=label, position=pos, suggested_by=me.name)
         db.session.add(p)
+        # Auto-register the suggester as available for every date in the proposed range
+        from datetime import date as _date, timedelta
+        s, e = _date.fromisoformat(start), _date.fromisoformat(end)
+        new_dates = [(s + timedelta(days=i)).isoformat() for i in range((e - s).days + 1)]
+        merged = list(set(me.available_dates_list) | set(new_dates))
+        me.set_dates(merged)
         db.session.commit()
         return jsonify({"ok": True, "proposal": p.to_dict()}), 201
 
@@ -1053,13 +1059,33 @@ def create_app() -> Flask:
         attending = bool(data.get("attending", True))
         p = TripDateProposal.query.filter_by(id=pid, trip_id=trip.id).first_or_404()
         existing = ProposalVote.query.filter_by(proposal_id=pid, member_id=me.id).first()
+        from datetime import date as _date, timedelta
+        s, e = _date.fromisoformat(p.start), _date.fromisoformat(p.end)
+        proposal_days = {(s + timedelta(days=i)).isoformat() for i in range((e - s).days + 1)}
         if attending and not existing:
             db.session.add(ProposalVote(
                 proposal_id=pid, member_id=me.id,
                 member_name=me.name, member_color=me.color,
             ))
+            # Add all proposal days to member's availability
+            merged = list(set(me.available_dates_list) | proposal_days)
+            me.set_dates(merged)
         elif not attending and existing:
             db.session.delete(existing)
+            # Remove proposal days that aren't covered by another voted proposal
+            other_voted = ProposalVote.query.filter(
+                ProposalVote.member_id == me.id,
+                ProposalVote.proposal_id != pid,
+            ).all()
+            keep = set()
+            for v in other_voted:
+                vp = TripDateProposal.query.get(v.proposal_id)
+                if vp:
+                    vs, ve = _date.fromisoformat(vp.start), _date.fromisoformat(vp.end)
+                    for i in range((ve - vs).days + 1):
+                        keep.add((vs + timedelta(days=i)).isoformat())
+            remaining = [d for d in me.available_dates_list if d not in proposal_days or d in keep]
+            me.set_dates(remaining)
         db.session.commit()
         p = TripDateProposal.query.get(pid)
         return jsonify({"ok": True, "proposal": p.to_dict()})

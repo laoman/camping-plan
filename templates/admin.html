@@ -90,7 +90,7 @@
             {% if member.name == me.name %}<span class="text-xs text-forest-600 font-normal ml-1">(you)</span>{% endif %}
             {% if member.is_admin %}<span class="text-xs text-amber-600 font-semibold ml-1">Admin</span>{% endif %}
           </div>
-          <div class="text-xs text-gray-400">Joined {{ member.joined_at | dmy }} · {{ member.available_dates_list|length }} date{{ 's' if member.available_dates_list|length != 1 else '' }}</div>
+          <div class="text-xs text-gray-400">Joined {{ member.joined_at | dmy }} · {{ member.voted_periods_count }} period{{ 's' if member.voted_periods_count != 1 else '' }}</div>
         </div>
         <form method="POST" action="/admin/{{ trip.join_code }}/reset-password/{{ member.id }}"
           onsubmit="return confirm('Reset password for {{ member.name }}? They will set a new one on next login.')">
