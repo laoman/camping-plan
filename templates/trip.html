@@ -1324,7 +1324,18 @@ async function suggestPeriod() {
   const p = data.proposal;
   const days = p.days;
   const total = {{ trip.members|length }};
-  const listEl = document.querySelector('.space-y-2.mb-6');
+  let listEl = document.querySelector('.space-y-2.mb-6');
+  if (!listEl) {
+    // No proposals existed yet — create the header + list container before the Crew Calendar section
+    const crewCalHeader = document.querySelector('#section-overview .flex.items-center.justify-between.mb-3.mt-2');
+    const header = document.createElement('p');
+    header.className = 'text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3';
+    header.textContent = 'Can you make it? Select your dates';
+    listEl = document.createElement('div');
+    listEl.className = 'space-y-2 mb-6';
+    crewCalHeader.parentNode.insertBefore(header, crewCalHeader);
+    crewCalHeader.parentNode.insertBefore(listEl, crewCalHeader);
+  }
   if (listEl) {
     const div = document.createElement('div');
     div.className = 'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer select-none transition-all bg-gray-50 border-gray-200 hover:border-gray-300';
