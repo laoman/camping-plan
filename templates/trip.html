@@ -28,8 +28,24 @@
       {% if me.is_admin %}
       <a href="/admin/{{ trip.join_code }}" class="btn-outline-sm" style="border-color:#FBBF24;color:#D97706;">Admin</a>
       {% endif %}
-      <div class="avatar-dot-sm" style="background:{{ me.color }};" title="{{ me.name }}">{{ me.name[0]|upper }}</div>
+      <button onclick="openRenameModal()" class="avatar-dot-sm hover:opacity-80 transition-opacity cursor-pointer" style="background:{{ me.color }};" title="Rename me">{{ me.name[0]|upper }}</button>
       <a href="/logout" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Leave</a>
+
+      <!-- Rename modal -->
+      <div id="rename-modal" class="fixed inset-0 z-[200] flex items-center justify-center hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-black/40" onclick="closeRenameModal()"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl p-6 w-80 mx-4">
+          <h3 class="text-base font-bold text-gray-800 mb-1">Change your name</h3>
+          <p class="text-xs text-gray-400 mb-4">This updates your name everywhere in the trip.</p>
+          <input id="rename-input" type="text" maxlength="40" placeholder="New name…"
+            class="add-input w-full mb-3" value="{{ me.name }}">
+          <p id="rename-error" class="text-xs text-red-500 mb-2 hidden"></p>
+          <div class="flex gap-2 justify-end">
+            <button type="button" onclick="closeRenameModal()" class="btn-outline-sm">Cancel</button>
+            <button type="button" onclick="submitRename()" class="add-btn">Save</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </nav>
@@ -772,6 +788,36 @@ function showTab(id) {
 // Restore tab from hash
 const h = location.hash.replace('#','');
 if (h) showTab(h);
+
+// ── Rename self ─────────────────────────────────
+function openRenameModal() {
+  document.getElementById('rename-input').value = ME;
+  document.getElementById('rename-error').classList.add('hidden');
+  document.getElementById('rename-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('rename-input').select(), 50);
+}
+function closeRenameModal() {
+  document.getElementById('rename-modal').classList.add('hidden');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeRenameModal();
+  if (e.key === 'Enter' && !document.getElementById('rename-modal').classList.contains('hidden')) submitRename();
+});
+async function submitRename() {
+  const input = document.getElementById('rename-input');
+  const errEl = document.getElementById('rename-error');
+  const newName = input.value.trim();
+  errEl.classList.add('hidden');
+  if (!newName) { errEl.textContent = 'Name cannot be empty.'; errEl.classList.remove('hidden'); return; }
+  const res = await fetch(`/api/${CODE}/me/rename`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: newName }),
+  });
+  const data = await res.json();
+  if (!data.ok) { errEl.textContent = data.error || 'Error.'; errEl.classList.remove('hidden'); return; }
+  // Reload so all server-rendered references (avatar, Jinja vars) are fresh
+  window.location.reload();
+}
 
 // ── Copy join code ──────────────────────────────
 function copyCode() {

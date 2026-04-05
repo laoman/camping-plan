@@ -691,6 +691,38 @@ def create_app() -> Flask:
         return jsonify(item.to_dict())
 
     # ──────────────────────────────────────────
+    # API — Member self-rename
+    # ──────────────────────────────────────────
+
+    @app.route("/api/<code>/me/rename", methods=["POST"])
+    @_json_require_member
+    def api_me_rename(code):
+        trip = Trip.query.filter_by(join_code=code).first_or_404()
+        me = _member(code)
+        data = request.get_json(silent=True) or {}
+        new_name = str(data.get("name", "")).strip()[:40]
+        if not new_name:
+            return jsonify({"ok": False, "error": "Name cannot be empty."}), 400
+        if new_name == me.name:
+            return jsonify({"ok": True, "name": me.name})
+        if TripMember.query.filter_by(trip_id=trip.id, name=new_name).first():
+            return jsonify({"ok": False, "error": f"'{new_name}' is already taken."}), 409
+        old_name = me.name
+        # Cascade to equipment and food assignee / added_by
+        for item in EquipmentItem.query.filter_by(trip_id=trip.id, assignee=old_name).all():
+            item.assignee = new_name
+        for item in EquipmentItem.query.filter_by(trip_id=trip.id, added_by=old_name).all():
+            item.added_by = new_name
+        for item in FoodItem.query.filter_by(trip_id=trip.id, assignee=old_name).all():
+            item.assignee = new_name
+        for item in FoodItem.query.filter_by(trip_id=trip.id, added_by=old_name).all():
+            item.added_by = new_name
+        me.name = new_name
+        db.session.commit()
+        session["user"] = new_name
+        return jsonify({"ok": True, "name": new_name})
+
+    # ──────────────────────────────────────────
     # API — Ideas
     # ──────────────────────────────────────────
 
