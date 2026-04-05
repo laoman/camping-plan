@@ -290,7 +290,8 @@
 
   <!-- ═══════════════════ EQUIPMENT ═══════════════════ -->
   <div id="section-equipment" class="tab-section hidden">
-    <div class="card max-w-2xl">
+    <div class="flex flex-col lg:flex-row gap-4 items-start">
+    <div class="card w-full lg:w-[55%]">
       <div class="card-header">
         <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
         <h2 class="card-title">Group Equipment</h2>
@@ -343,12 +344,44 @@
         </select>
         <button type="submit" class="add-btn">Add</button>
       </form>
-    </div>
+    </div><!-- end left card -->
+
+    <!-- who's bringing what: equipment -->
+    <div class="card w-full lg:flex-1 lg:sticky lg:top-20" id="equip-summary-card">
+      <div class="card-header">
+        <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+        <h2 class="card-title">Who's Bringing What</h2>
+      </div>
+      <div id="equip-summary" class="space-y-3">
+        {% for m in trip.members %}
+        <div id="equip-sum-{{ m.name|replace(' ','-') }}">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="avatar-dot-sm flex-shrink-0" style="background:{{ m.color }}">{{ m.name[0]|upper }}</div>
+            <span class="text-sm font-semibold text-gray-700">{{ m.name }}</span>
+            {% set cnt = trip.equipment|selectattr('assignee','equalto',m.name)|list|length %}
+            <span class="ml-auto text-xs text-gray-400" id="equip-sum-count-{{ m.name|replace(' ','-') }}">{{ cnt }} item{{ 's' if cnt != 1 }}</span>
+          </div>
+          <div class="pl-8 flex flex-wrap gap-1" id="equip-sum-tags-{{ m.name|replace(' ','-') }}">
+            {% set items = trip.equipment|selectattr('assignee','equalto',m.name)|list %}
+            {% if items %}{% for item in items %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-gray-100 text-gray-600">{{ item.text }}</span>
+            {% endfor %}{% else %}
+            <span class="text-xs text-gray-300 italic">nothing yet</span>
+            {% endif %}
+          </div>
+        </div>
+        {% if not loop.last %}<hr class="border-gray-100">{% endif %}
+        {% endfor %}
+        {% if not trip.members %}<p class="text-sm text-gray-400 text-center py-4">No members yet.</p>{% endif %}
+      </div>
+    </div><!-- end right equipment summary -->
+    </div><!-- end flex row -->
   </div>
 
   <!-- ═══════════════════ FOOD ═══════════════════ -->
   <div id="section-food" class="tab-section hidden">
-    <div class="card max-w-2xl">
+    <div class="flex flex-col lg:flex-row gap-4 items-start">
+    <div class="card w-full lg:w-[55%]">
       <div class="card-header">
         <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 000 2h1v9a1 1 0 001 1h10a1 1 0 001-1V6h1a1 1 0 100-2H3zm3 2h8v8H6V6zm3-4a1 1 0 011-1h0a1 1 0 011 1v1H9V2z"/></svg>
         <h2 class="card-title">Group Food</h2>
@@ -401,8 +434,40 @@
         </select>
         <button type="submit" class="add-btn">Add</button>
       </form>
-    </div>
+    </div><!-- end left card -->
+
+    <!-- who's bringing what: food -->
+    <div class="card w-full lg:flex-1 lg:sticky lg:top-20" id="food-summary-card">
+      <div class="card-header">
+        <svg class="card-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+        <h2 class="card-title">Who's Bringing What</h2>
+      </div>
+      <div id="food-summary" class="space-y-3">
+        {% for m in trip.members %}
+        <div id="food-sum-{{ m.name|replace(' ','-') }}">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="avatar-dot-sm flex-shrink-0" style="background:{{ m.color }}">{{ m.name[0]|upper }}</div>
+            <span class="text-sm font-semibold text-gray-700">{{ m.name }}</span>
+            {% set cnt = trip.food|selectattr('assignee','equalto',m.name)|list|length %}
+            <span class="ml-auto text-xs text-gray-400" id="food-sum-count-{{ m.name|replace(' ','-') }}">{{ cnt }} item{{ 's' if cnt != 1 }}</span>
+          </div>
+          <div class="pl-8 flex flex-wrap gap-1" id="food-sum-tags-{{ m.name|replace(' ','-') }}">
+            {% set items = trip.food|selectattr('assignee','equalto',m.name)|list %}
+            {% if items %}{% for item in items %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-amber-50 text-amber-700">{{ item.text }}</span>
+            {% endfor %}{% else %}
+            <span class="text-xs text-gray-300 italic">nothing yet</span>
+            {% endif %}
+          </div>
+        </div>
+        {% if not loop.last %}<hr class="border-gray-100">{% endif %}
+        {% endfor %}
+        {% if not trip.members %}<p class="text-sm text-gray-400 text-center py-4">No members yet.</p>{% endif %}
+      </div>
+    </div><!-- end right food summary -->
+    </div><!-- end flex row -->
   </div>
+
   <div id="section-ideas" class="tab-section hidden">
     <div class="card max-w-2xl">
       <div class="card-header">
@@ -751,6 +816,7 @@ async function assignItem(type, id, assignee) {
   if (!res.ok) return;
   const item = await res.json();
   renderAssigneeCell(type, id, item.assignee);
+  refreshSummary(type);
 }
 
 async function addShared(e, type) {
@@ -796,6 +862,7 @@ async function addShared(e, type) {
   listEl.appendChild(div);
   form.text.value = '';
   updateCount(type === 'todos' ? 'todos' : 'equipment');
+  if (type === 'equipment') refreshSummary('equipment');
 }
 
 async function toggleShared(type, id, btn) {
@@ -822,6 +889,7 @@ async function deleteShared(type, id) {
   const prefix = type === 'todos' ? 'todo' : 'equip';
   document.getElementById(`${prefix}-${id}`)?.remove();
   updateCount(type === 'todos' ? 'todos' : 'equipment');
+  if (type === 'equipment') refreshSummary('equipment');
 }
 
 function updateCount(key) {
@@ -831,6 +899,44 @@ function updateCount(key) {
   if (!list) return;
   const n = list.children.length;
   el.textContent = `${n} item${n!==1?'s':''}`;
+}
+
+function refreshSummary(type) {
+  const prefix = type === 'equipment' ? 'equip' : 'food';
+  const listEl = document.getElementById(type + '-list');
+  if (!listEl) return;
+  const memberItems = {};
+  MEMBERS.forEach(m => memberItems[m] = []);
+  listEl.querySelectorAll('[id^="' + prefix + '-"]').forEach(row => {
+    const parts = row.id.split('-');
+    const id = parts[parts.length - 1];
+    if (isNaN(id)) return;
+    const textEl = row.querySelector('.flex-1');
+    if (!textEl) return;
+    const text = textEl.textContent.trim();
+    const cell = document.getElementById(prefix + '-cell-' + id);
+    if (!cell) return;
+    let assignee = '';
+    if (cell.querySelector('.bg-green-100')) {
+      assignee = ME;
+    } else {
+      const sel = cell.querySelector('select');
+      if (sel) assignee = sel.value || '';
+    }
+    if (assignee && memberItems[assignee] !== undefined) memberItems[assignee].push(text);
+  });
+  const tagColor = type === 'equipment' ? 'bg-gray-100 text-gray-600' : 'bg-amber-50 text-amber-700';
+  MEMBERS.forEach(name => {
+    const slug = name.replace(/ /g, '-');
+    const tagsEl = document.getElementById(prefix + '-sum-tags-' + slug);
+    const countEl = document.getElementById(prefix + '-sum-count-' + slug);
+    if (!tagsEl || !countEl) return;
+    const items = memberItems[name] || [];
+    countEl.textContent = items.length + ' item' + (items.length !== 1 ? 's' : '');
+    tagsEl.innerHTML = items.length
+      ? items.map(t => `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs ${tagColor}">${escHtml(t)}</span>`).join('')
+      : '<span class="text-xs text-gray-300 italic">nothing yet</span>';
+  });
 }
 
 // ── Food ──────────────────────────────────────────
@@ -862,6 +968,7 @@ async function addFood(e) {
   if (item.assignee) renderAssigneeCell('food', item.id, item.assignee);
   form.text.value = '';
   updateCount('food');
+  refreshSummary('food');
 }
 
 async function toggleFood(id, btn) {
@@ -886,6 +993,7 @@ async function deleteFood(id) {
   if (!res.ok) return;
   document.getElementById(`food-${id}`)?.remove();
   updateCount('food');
+  refreshSummary('food');
 }
 
 // ── Ideas ─────────────────────────────────────────

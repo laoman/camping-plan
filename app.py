@@ -232,7 +232,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.secret_key = os.environ.get("SECRET_KEY", "jimnycamp-dev-secret-change-in-prod")
 
-    db_path = Path(__file__).parent / "jimnycamp.db"
+    db_path = Path(os.environ.get("DB_PATH", str(Path(__file__).parent / "jimnycamp.db")))
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
